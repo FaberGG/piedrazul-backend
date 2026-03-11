@@ -1,0 +1,33 @@
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: piedrazul_db
+    environment:
+      POSTGRES_DB: piedrazul_dev
+      POSTGRES_USER: piedrazul_user
+      POSTGRES_PASSWORD: piedrazul_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - piedrazul_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U piedrazul_user -d piedrazul_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: piedrazul_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@piedrazul.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  piedrazul_data:

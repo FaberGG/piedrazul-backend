@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/piedrazul_dev
+    username: piedrazul_user
+    password: piedrazul_pass
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+app:
+  jwt:
+    secret: dev-secret-key-must-be-at-least-512-bits-long-for-hmac-sha512-algorithm-replace-in-prod
