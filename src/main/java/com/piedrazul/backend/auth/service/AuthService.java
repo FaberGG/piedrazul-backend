@@ -3,28 +3,33 @@ package com.piedrazul.backend.auth.service;
 import com.piedrazul.backend.auth.dto.AuthResponse;
 import com.piedrazul.backend.auth.dto.LoginRequest;
 import com.piedrazul.backend.auth.dto.RegisterPacienteRequest;
-import org.springframework.stereotype.Service;
 
 /**
- * Servicio de autenticación y registro de usuarios.
+ * Contrato interno del servicio de autenticación (módulo AUTH).
+ *
+ * Implementación: {@link AuthServiceImpl}
  */
-@Service
-public class AuthService {
+public interface AuthService {
 
     /**
-     * Autentica un usuario y genera un token JWT.
+     * Autentica un usuario con sus credenciales y genera un token JWT.
+     *
+     * @param request credenciales (username + password)
+     * @return respuesta con token JWT, username y rol
+     * @throws org.springframework.security.authentication.BadCredentialsException si las credenciales son inválidas
+     * @throws com.piedrazul.backend.shared.exception.BusinessRuleException si el usuario está inactivo
      */
-    public AuthResponse login(LoginRequest request) {
-        // TODO: validar credenciales, generar JWT
-        return null;
-    }
+    AuthResponse login(LoginRequest request);
 
     /**
-     * Registra un nuevo paciente con cuenta de autogestión.
+     * Registra un nuevo paciente con cuenta de autogestión y genera su token JWT.
+     * Crea en una transacción atómica: Usuario (rol PACIENTE) + Paciente vinculado.
+     *
+     * @param request datos de registro
+     * @return respuesta con token JWT listo para usar
+     * @throws com.piedrazul.backend.shared.exception.BusinessRuleException si el username ya existe
      */
-    public AuthResponse registerPaciente(RegisterPacienteRequest request) {
-        // TODO: crear Usuario + Paciente, generar JWT
-        return null;
-    }
+    AuthResponse registerPaciente(RegisterPacienteRequest request);
 }
+
 

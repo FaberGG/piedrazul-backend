@@ -1,41 +1,55 @@
 package com.piedrazul.backend.agenda.service;
 
+import com.piedrazul.backend.agenda.dto.AgendarAutonomoRequest;
 import com.piedrazul.backend.agenda.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.dto.CitaResponse;
 import com.piedrazul.backend.agenda.dto.CrearCitaManualRequest;
-import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 
 /**
- * Servicio principal de gestión de citas médicas.
- * Reglas de negocio: validación de disponibilidad, límites de citas, concurrencia.
+ * Contrato interno del servicio de citas (módulo AGENDA).
+ *
+ * Esta interfaz es PRIVADA al módulo — no debe ser importada
+ * por ningún otro módulo. La comunicación externa va por {@link com.piedrazul.backend.agenda.AgendaApi}.
+ *
+ * Implementación: {@link CitaServiceImpl}
  */
-@Service
-public class CitaService {
+public interface CitaService {
 
     /**
-     * Lista la agenda de un médico en una fecha determinada (RF1).
+     * RF1 — Lista la agenda de un médico en una fecha.
+     * Incluye citas del día, slots disponibles y porcentaje de ocupación.
+     *
+     * @param medicoId ID del médico
+     * @param fecha    día a consultar
+     * @return agenda completa del médico para esa fecha
+     * @throws com.piedrazul.backend.shared.exception.ResourceNotFoundException si el médico no existe
      */
-    public AgendaResponse listarAgendaMedico(Long medicoId, LocalDate fecha) {
-        // TODO: consultar citas, calcular slots, porcentaje de ocupación
-        return null;
-    }
+    AgendaResponse listarAgendaMedico(Long medicoId, LocalDate fecha);
 
     /**
-     * Crea una cita manual para un paciente (RF2).
+     * RF2 — Crea una cita manual (agendador o médico).
+     * Busca o crea el paciente por documento antes de persistir la cita.
+     *
+     * @param request datos del paciente + datos de la cita
+     * @return cita creada con estado PROGRAMADA
+     * @throws com.piedrazul.backend.shared.exception.BusinessRuleException si el slot no está disponible
+     * @throws com.piedrazul.backend.shared.exception.ResourceNotFoundException si el médico no existe o está inactivo
      */
-    public CitaResponse crearCitaManual(CrearCitaManualRequest request) {
-        // TODO: buscar/crear paciente, validar disponibilidad, persistir cita
-        return null;
-    }
+    CitaResponse crearCitaManual(CrearCitaManualRequest request);
 
     /**
-     * Agendamiento autónomo por parte del paciente (RF3).
+     * RF3 — Agendamiento autónomo por parte del paciente.
+     * El ID del paciente se extrae del SecurityContext (usuario autenticado).
+     *
+     * @param request datos de la cita solicitada
+     * @return cita creada con estado PROGRAMADA
+     * @throws com.piedrazul.backend.shared.exception.BusinessRuleException si ya tiene 3 citas futuras activas
+     * @throws com.piedrazul.backend.shared.exception.BusinessRuleException si el slot no está disponible
      */
-    public CitaResponse agendarAutonomo(Long pacienteId, Long medicoId, LocalDate fecha, String hora) {
-        // TODO: validar límite de 3 citas futuras, disponibilidad, concurrencia
-        return null;
-    }
+    CitaResponse agendarAutonomo(AgendarAutonomoRequest request);
 }
+
+
 

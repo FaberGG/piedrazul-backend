@@ -1,36 +1,39 @@
 package com.piedrazul.backend.agenda.service;
 
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
 /**
- * Servicio para calcular disponibilidad de horarios de un médico.
- * Usa ConfiguracionMedico para determinar slots libres/ocupados.
+ * Contrato interno del servicio de disponibilidad horaria (módulo AGENDA).
+ * Calcula slots libres/ocupados a partir de {@code ConfiguracionMedico}.
+ *
+ * Implementación: {@link DisponibilidadServiceImpl}
  */
-@Service
-public class DisponibilidadService {
+public interface DisponibilidadService {
 
     /**
-     * Calcula los horarios disponibles de un médico en una fecha.
+     * Calcula todos los horarios disponibles de un médico en una fecha.
+     * Un slot está disponible si: existe en la configuración del médico
+     * Y no hay una cita activa (no CANCELADA) en ese horario.
      *
      * @param medicoId ID del médico
      * @param fecha    fecha a consultar
-     * @return lista de horarios disponibles
+     * @return lista de horas disponibles ordenada ascendentemente; vacía si no hay slots
+     * @throws com.piedrazul.backend.shared.exception.ResourceNotFoundException si el médico no tiene configuración
      */
-    public List<LocalTime> calcularHorariosDisponibles(Long medicoId, LocalDate fecha) {
-        // TODO: obtener configuración del médico, generar slots, filtrar ocupados
-        return List.of();
-    }
+    List<LocalTime> calcularHorariosDisponibles(Long medicoId, LocalDate fecha);
 
     /**
-     * Verifica si un horario específico está disponible para un médico.
+     * Verifica si un slot específico está disponible para un médico.
+     * Versión optimizada de {@link #calcularHorariosDisponibles} para una sola hora.
+     *
+     * @param medicoId ID del médico
+     * @param fecha    fecha de la cita
+     * @param hora     hora de la cita
+     * @return {@code true} si el slot está libre
      */
-    public boolean estaDisponible(Long medicoId, LocalDate fecha, LocalTime hora) {
-        // TODO: verificar contra citas existentes no canceladas
-        return false;
-    }
+    boolean estaDisponible(Long medicoId, LocalDate fecha, LocalTime hora);
 }
+
 

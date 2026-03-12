@@ -61,31 +61,40 @@ src/main/java/com/piedrazul/backend/
 │   └── dto/        → ErrorResponse
 │
 ├── auth/                                  ← autenticación (ya creado)
+│   ├── AuthApi.java          ← 🟢 INTERFAZ PÚBLICA del módulo (otros módulos inyectan esto)
 │   ├── controller/ → AuthController
-│   ├── service/    → AuthService
-│   ├── domain/     → Usuario (entidad)
-│   ├── repository/ → UsuarioRepository
-│   └── dto/        → LoginRequest, AuthResponse, RegisterPacienteRequest
+│   ├── service/    → AuthService, AuthFacade (implementa AuthApi)
+│   ├── domain/     → Usuario (entidad — PRIVADA al módulo)
+│   ├── repository/ → UsuarioRepository (PRIVADO al módulo)
+│   └── dto/        → LoginRequest, AuthResponse, RegisterPacienteRequest, UsuarioInfoDto
 │
 ├── agenda/                                ← ⭐ MÓDULO PRINCIPAL — aquí trabajarás
+│   ├── AgendaApi.java        ← 🟢 INTERFAZ PÚBLICA del módulo (reportes inyecta esto)
 │   ├── controller/ → CitaController, MedicoController
-│   ├── service/    → CitaService, DisponibilidadService, MedicoService
-│   ├── domain/     → Cita, Paciente, Medico, ConfiguracionMedico, ...
-│   ├── repository/ → CitaRepository, PacienteRepository, MedicoRepository
-│   └── dto/        → CrearCitaManualRequest, AgendaResponse, CitaResponse
+│   ├── service/    → CitaService, DisponibilidadService, MedicoService,
+│   │                  AgendaFacade (implementa AgendaApi)
+│   ├── domain/     → Cita, Paciente, Medico, ConfiguracionMedico, ... (PRIVADO)
+│   ├── repository/ → CitaRepository, PacienteRepository, MedicoRepository (PRIVADO)
+│   └── dto/        → CrearCitaManualRequest, AgendaResponse, CitaResponse,
+│                      ResumenCitasDto (DTO de cruce hacia reportes)
 │
 └── reportes/                              ← no se toca en sprint 1
+    └── service/ → ReporteService (inyecta AgendaApi, NO CitaRepository)
 ```
 
 ### Regla de Dependencia
 
 ```
-SHARED ← AUTH ← AGENDA
+SHARED ← AUTH ← AGENDA ← REPORTES
+           ↑        ↑
+        AuthApi  AgendaApi   ← únicos puntos de cruce entre módulos
 ```
 
-- **AGENDA** puede usar clases de `shared.*` y consultar `auth.domain.Usuario`.
-- **AGENDA** NO debe importar nada de `reportes/`.
+- **AGENDA** puede usar clases de `shared.*` y consultar `auth.domain.Usuario` (via JPA).
+- Si necesitas datos de otro módulo → **inyecta su interfaz pública** (`AgendaApi`, `AuthApi`).
+- **NUNCA** importar `*.domain.*` o `*.repository.*` de otro módulo.
 - Toda lógica de negocio va en `service/`, nunca en `controller/`.
+- Ver [ARQUITECTURA-MODULAR.md](./ARQUITECTURA-MODULAR.md) para el análisis completo.
 
 ---
 
@@ -583,6 +592,13 @@ public class DataLoader implements CommandLineRunner {
 
 ## 9. Referencia Rápida de Archivos
 
+### Interfaces públicas de módulo
+
+| Interfaz | Módulo | Implementación | Quién la consume |
+|---|---|---|---|
+| `AgendaApi` | `agenda/` | `AgendaFacade` | módulo `reportes` |
+| `AuthApi` | `auth/` | `AuthFacade` | módulo `agenda` (si necesita validar usuarios) |
+
 ### Entidades JPA que ya están definidas (solo implementar lógica)
 
 | Entidad | Tabla | Relaciones clave |
@@ -603,12 +619,14 @@ public class DataLoader implements CommandLineRunner {
 
 ### DTOs ya definidos
 
-| DTO | Uso |
-|-----|-----|
-| `CrearCitaManualRequest` | Body de `POST /citas/manual` (con validaciones) |
-| `AgendaResponse` | Response de `GET /citas/agenda` |
-| `CitaResponse` | Representación de una cita individual |
-| `ErrorResponse` | Estructura estándar de errores |
+| DTO | Módulo | Uso |
+|-----|--------|-----|
+| `CrearCitaManualRequest` | `agenda.dto` | Body de `POST /citas/manual` (con validaciones) |
+| `AgendaResponse` | `agenda.dto` | Response de `GET /citas/agenda` |
+| `CitaResponse` | `agenda.dto` | Representación de una cita individual |
+| `ResumenCitasDto` | `agenda.dto` | **DTO de cruce** — lo que `AgendaApi` entrega a `reportes` |
+| `UsuarioInfoDto` | `auth.dto` | **DTO de cruce** — lo que `AuthApi` entrega a otros módulos |
+| `ErrorResponse` | `shared.dto` | Estructura estándar de errores |
 
 ---
 

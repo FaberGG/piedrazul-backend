@@ -1,29 +1,40 @@
 package com.piedrazul.backend.agenda.service;
 
-import org.springframework.stereotype.Service;
+import com.piedrazul.backend.agenda.dto.MedicoResponse;
 
 import java.util.List;
 
 /**
- * Servicio de gestión de médicos y su configuración.
+ * Contrato interno del servicio de médicos (módulo AGENDA).
+ *
+ * Implementación: {@link MedicoServiceImpl}
  */
-@Service
-public class MedicoService {
+public interface MedicoService {
 
     /**
-     * Lista todos los médicos activos.
+     * Lista todos los médicos con estado ACTIVO.
+     *
+     * @return lista de médicos activos con su configuración de horario
      */
-    public List<?> listarMedicosActivos() {
-        // TODO: consultar médicos con estado ACTIVO
-        return List.of();
-    }
+    List<MedicoResponse> listarMedicosActivos();
 
     /**
-     * Lista médicos por especialidad.
+     * Lista médicos activos filtrados por especialidad.
+     *
+     * @param especialidad TERAPIA_NEURAL | QUIROPRAXIA | FISIOTERAPIA
+     * @return lista filtrada; vacía si no hay coincidencias
      */
-    public List<?> listarPorEspecialidad(String especialidad) {
-        // TODO: filtrar por especialidad
-        return List.of();
-    }
+    List<MedicoResponse> listarPorEspecialidad(String especialidad);
+
+    /**
+     * Obtiene los datos de un médico por su ID.
+     *
+     * @param id ID del médico
+     * @return datos del médico
+     * @throws com.piedrazul.backend.shared.exception.ResourceNotFoundException si no existe
+     */
+    MedicoResponse obtenerPorId(Long id);
 }
+
+
 

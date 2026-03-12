@@ -118,7 +118,13 @@
             <version>2.3.0</version>
         </dependency>
 
-        <!-- ===== Spring Modulith (solo testing de arquitectura) ===== -->
+        <!-- ===== Spring Modulith (testing de arquitectura) ===== -->
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-core</artifactId>
+            <!-- compile scope: permite usar @ApplicationModule, @NamedInterface
+                 en código main (package-info.java) -->
+        </dependency>
         <dependency>
             <groupId>org.springframework.modulith</groupId>
             <artifactId>spring-modulith-test</artifactId>
@@ -138,18 +144,6 @@
     </dependencyManagement>
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </path>
-                    </annotationProcessorPaths>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
