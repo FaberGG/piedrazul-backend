@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
  * Entidad Médico/Terapista.
  * Especialidades: TERAPIA_NEURAL, QUIROPRAXIA, FISIOTERAPIA
  */
-@Entity
-@Table(name = "medicos")
+@Entity(name = "AgendaMedico")
+@Table(name = "agenda_medicos")
 @Data
 @Builder
 @NoArgsConstructor

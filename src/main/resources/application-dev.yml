@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/piedrazul_dev
+    url:  jdbc:postgresql://localhost:5432/piedrazul_dev?currentSchema=public
     username: piedrazul_user
     password: piedrazul_pass
     driver-class-name: org.postgresql.Driver

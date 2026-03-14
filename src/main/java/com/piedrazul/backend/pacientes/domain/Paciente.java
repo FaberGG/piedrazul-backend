@@ -1,13 +1,14 @@
-package com.piedrazul.backend.agenda.domain;
+package com.piedrazul.backend.pacientes.domain;
 
 import com.piedrazul.backend.auth.domain.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
-@Entity(name = "AgendaPaciente")
-@Table(name = "agenda_pacientes")
+@Entity(name = "PacientesPaciente")
+@Table(name = "pacientes")
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,11 +19,11 @@ public class Paciente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "usuario_id")
+    @OneToOne
+    @JoinColumn(name = "usuario_id", nullable = false, unique = true)
     private Usuario usuario;
 
-    @Column(nullable = false, unique = true, length = 15)
+    @Column(nullable = false, unique = true, length = 20)
     private String documento;
 
     @Column(nullable = false, length = 100)
@@ -34,12 +35,20 @@ public class Paciente {
     @Column(nullable = false, length = 10)
     private String celular;
 
-    @Column(nullable = false, length = 20)
-    private String genero;
+    @Column(length = 100)
+    private String correo;
 
     @Column(name = "fecha_nacimiento")
     private LocalDate fechaNacimiento;
 
-    @Column(length = 100)
-    private String correo;
+    @Column(length = 20)
+    private String genero;
+
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }

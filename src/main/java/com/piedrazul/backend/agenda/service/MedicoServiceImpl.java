@@ -18,7 +18,7 @@ import java.util.List;
  *  Al implementar, mapear también medico.configuracion → MedicoResponse.HorarioResponse.
  *  Si configuracion es null (médico sin configurar), horario puede ser null.
  */
-@Service
+@Service("medicoAgendaService")
 @Transactional(readOnly = true)
 public class MedicoServiceImpl implements MedicoService {
 

@@ -2,10 +2,12 @@ package com.piedrazul.backend.auth.controller;
 
 import com.piedrazul.backend.auth.dto.AuthResponse;
 import com.piedrazul.backend.auth.dto.LoginRequest;
+import com.piedrazul.backend.auth.dto.RegisterMedicoRequest;
 import com.piedrazul.backend.auth.dto.RegisterPacienteRequest;
 import com.piedrazul.backend.auth.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -32,6 +34,17 @@ public class AuthController {
     public ResponseEntity<AuthResponse> registerPaciente(@Valid @RequestBody RegisterPacienteRequest request) {
         // TODO: delegar al servicio
         return ResponseEntity.status(201).body(authService.registerPaciente(request));
+    }
+
+    @PostMapping("/register/medico")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AuthResponse> registerMedico(@Valid @RequestBody RegisterMedicoRequest request) {
+        return ResponseEntity.status(201).body(authService.registerMedico(request));
+    }
+
+    @PostMapping("/register/admin")
+    public ResponseEntity<AuthResponse> registerAdmin(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.status(201).body(authService.registerAdmin(request));
     }
 }
 
