@@ -1,4 +1,4 @@
-package com.piedrazul.backend.agenda.service;
+package com.piedrazul.backend.agenda.internal.service;
 
 import java.time.LocalDate;
 import java.time.LocalTime;

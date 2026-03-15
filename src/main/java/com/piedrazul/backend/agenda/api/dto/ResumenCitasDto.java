@@ -1,5 +1,6 @@
-package com.piedrazul.backend.agenda.dto;
+package com.piedrazul.backend.agenda.api.dto;
 
+import com.piedrazul.backend.agenda.api.AgendaApi;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,7 +10,7 @@ import java.time.LocalDate;
 
 /**
  * DTO de cruce de módulos: lo que el módulo AGENDA expone
- * al módulo REPORTES a través de {@link com.piedrazul.backend.agenda.AgendaApi}.
+ * al módulo REPORTES a través de {@link AgendaApi}.
  *
  * Este objeto NO es una entidad de dominio. Es un contrato de datos
  * intencionalmente simple para no acoplar los módulos.

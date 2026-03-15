@@ -1,10 +1,10 @@
-package com.piedrazul.backend.agenda.controller;
+package com.piedrazul.backend.agenda.internal.controller;
 
-import com.piedrazul.backend.agenda.dto.AgendarAutonomoRequest;
-import com.piedrazul.backend.agenda.dto.AgendaResponse;
-import com.piedrazul.backend.agenda.dto.CitaResponse;
-import com.piedrazul.backend.agenda.dto.CrearCitaManualRequest;
-import com.piedrazul.backend.agenda.service.CitaService;
+import com.piedrazul.backend.agenda.internal.dto.AgendarAutonomoRequest;
+import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
+import com.piedrazul.backend.agenda.internal.dto.CitaResponse;
+import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
+import com.piedrazul.backend.agenda.internal.service.CitaService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

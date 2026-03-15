@@ -1,6 +1,6 @@
-package com.piedrazul.backend.agenda;
+package com.piedrazul.backend.agenda.api;
 
-import com.piedrazul.backend.agenda.dto.ResumenCitasDto;
+import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
 
 import java.time.LocalDate;
 
@@ -20,7 +20,7 @@ import java.time.LocalDate;
  *   Microservicios  → HTTP endpoint en AgendaController
  *   Monolito modular → este método Java (in-process call)
  *
- * @see com.piedrazul.backend.agenda.service.AgendaFacade
+ * @see AgendaFacade
  */
 public interface AgendaApi {
 

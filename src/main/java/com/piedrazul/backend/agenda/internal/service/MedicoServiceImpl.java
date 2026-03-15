@@ -1,7 +1,7 @@
-package com.piedrazul.backend.agenda.service;
+package com.piedrazul.backend.agenda.internal.service;
 
 import com.piedrazul.backend.agenda.dto.MedicoResponse;
-import com.piedrazul.backend.agenda.repository.MedicoRepository;
+import com.piedrazul.backend.agenda.internal.repository.MedicoRepository;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

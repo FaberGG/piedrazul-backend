@@ -1,9 +1,10 @@
-package com.piedrazul.backend.agenda.service;
+package com.piedrazul.backend.agenda.internal.service;
 
-import com.piedrazul.backend.agenda.dto.AgendarAutonomoRequest;
-import com.piedrazul.backend.agenda.dto.AgendaResponse;
-import com.piedrazul.backend.agenda.dto.CitaResponse;
-import com.piedrazul.backend.agenda.dto.CrearCitaManualRequest;
+import com.piedrazul.backend.agenda.api.AgendaApi;
+import com.piedrazul.backend.agenda.internal.dto.AgendarAutonomoRequest;
+import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
+import com.piedrazul.backend.agenda.internal.dto.CitaResponse;
+import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
 
 import java.time.LocalDate;
 
@@ -11,7 +12,7 @@ import java.time.LocalDate;
  * Contrato interno del servicio de citas (módulo AGENDA).
  *
  * Esta interfaz es PRIVADA al módulo — no debe ser importada
- * por ningún otro módulo. La comunicación externa va por {@link com.piedrazul.backend.agenda.AgendaApi}.
+ * por ningún otro módulo. La comunicación externa va por {@link AgendaApi}.
  *
  * Implementación: {@link CitaServiceImpl}
  */

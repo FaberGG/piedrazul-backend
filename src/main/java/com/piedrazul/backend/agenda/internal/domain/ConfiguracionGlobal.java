@@ -1,4 +1,4 @@
-package com.piedrazul.backend.agenda.domain;
+package com.piedrazul.backend.agenda.internal.domain;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

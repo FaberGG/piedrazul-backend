@@ -1,4 +1,4 @@
-package com.piedrazul.backend.agenda.dto;
+package com.piedrazul.backend.agenda.internal.dto;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

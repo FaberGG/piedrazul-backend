@@ -1,8 +1,7 @@
-package com.piedrazul.backend.agenda.service;
+package com.piedrazul.backend.agenda.api;
 
-import com.piedrazul.backend.agenda.AgendaApi;
-import com.piedrazul.backend.agenda.dto.ResumenCitasDto;
-import com.piedrazul.backend.agenda.repository.CitaRepository;
+import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
+import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

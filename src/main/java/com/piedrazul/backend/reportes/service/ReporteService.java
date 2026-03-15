@@ -1,7 +1,7 @@
 package com.piedrazul.backend.reportes.service;
 
-import com.piedrazul.backend.agenda.AgendaApi;
-import com.piedrazul.backend.agenda.dto.ResumenCitasDto;
+import com.piedrazul.backend.agenda.api.AgendaApi;
+import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
 import com.piedrazul.backend.reportes.dto.ReporteCitasResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +23,7 @@ public class ReporteService {
 
     /**
      * Contrato público del módulo AGENDA — única dependencia permitida hacia él.
-     * Ver {@link com.piedrazul.backend.agenda.AgendaApi}.
+     * Ver {@link AgendaApi}.
      */
     private final AgendaApi agendaApi;
 

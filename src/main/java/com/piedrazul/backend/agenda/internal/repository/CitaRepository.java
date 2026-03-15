@@ -1,6 +1,6 @@
-package com.piedrazul.backend.agenda.repository;
+package com.piedrazul.backend.agenda.internal.repository;
 
-import com.piedrazul.backend.agenda.domain.Cita;
+import com.piedrazul.backend.agenda.internal.domain.Cita;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

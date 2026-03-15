@@ -1,4 +1,4 @@
-package com.piedrazul.backend.agenda.domain;
+package com.piedrazul.backend.agenda.internal.domain;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -29,13 +29,11 @@ public class Cita {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "paciente_id", nullable = false)
-    private Paciente paciente;
+    @Column(name = "paciente_id", nullable = false)
+    private Long pacienteId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "medico_id", nullable = false)
-    private Medico medico;
+    @Column(name = "medico_id", nullable = false)
+    private Long medicoId;
 
     @Column(nullable = false)
     private LocalDate fecha;

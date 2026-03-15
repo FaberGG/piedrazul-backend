@@ -1,6 +1,6 @@
 package com.piedrazul.backend.agenda;
 
-import com.piedrazul.backend.agenda.service.CitaService;
+import com.piedrazul.backend.agenda.internal.service.CitaService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
