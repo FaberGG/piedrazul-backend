@@ -11,6 +11,7 @@
  * PRIVADOS (nunca importar desde fuera):
  *  agenda.domain, agenda.repository, agenda.service, agenda.controller
  */
-@org.springframework.modulith.ApplicationModule(displayName = "Agenda")
+@org.springframework.modulith.ApplicationModule(displayName = "Agenda",
+        allowedDependencies = {"medicos::api", "medicos::api-dto"})
 package com.piedrazul.backend.agenda;
 

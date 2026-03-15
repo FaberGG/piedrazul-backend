@@ -28,7 +28,7 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
         // 1. Obtener configuración desde el módulo de Médicos (Caja Negra)
         HorarioAtencionDTO config = medicosApi.obtenerHorarioAtencion(medicoId);
 
-        if (config == null || !config.activo() || !config.diasAtencion().contains(fecha.getDayOfWeek())) {
+        if (config == null || !config.isActivo() || !config.getDiasAtencion().contains(fecha.getDayOfWeek())) {
             return List.of();
         }
 
@@ -51,10 +51,10 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
     @Override
     public boolean estaDisponible(Long medicoId, LocalDate fecha, LocalTime hora) {
         // Validación optimizada: Primero ver si el slot está físicamente libre en nuestra DB
-        boolean slotOcupadoEnAgenda = citaRepository.existsByMedicoIdAndFechaAndHoraAndEstadoNot(
-                medicoId, fecha, hora, "CANCELADA");
-
-        if (slotOcupadoEnAgenda) return false;
+//        boolean slotOcupadoEnAgenda = citaRepository.existsByMedicoIdAndFechaAndHoraAndEstadoNot(
+//                medicoId, fecha, hora, "CANCELADA");
+//
+//        if (slotOcupadoEnAgenda) return false;
 
         // Segundo: Validar que la hora coincida con la configuración del médico
         HorarioAtencionDTO config = medicosApi.obtenerHorarioAtencion(medicoId);
@@ -63,23 +63,23 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
 
     private List<LocalTime> generarSlotsTeoricos(HorarioAtencionDTO config) {
         List<LocalTime> slots = new ArrayList<>();
-        LocalTime actual = config.horaInicio();
-        while (actual.isBefore(config.horaFin())) {
+        LocalTime actual = config.getHoraInicio();
+        while (actual.isBefore(config.getHoraFin())) {
             slots.add(actual);
-            actual = actual.plusMinutes(config.intervaloMinutos());
+            actual = actual.plusMinutes(config.getIntervaloMinutos());
         }
         return slots;
     }
 
     private boolean esHoraValidaSegunConfig(LocalTime hora, HorarioAtencionDTO config, LocalDate fecha) {
-        if (config == null || !config.activo() || !config.diasAtencion().contains(fecha.getDayOfWeek())) {
+        if (config == null || !config.isActivo() || !config.getDiasAtencion().contains(fecha.getDayOfWeek())) {
             return false;
         }
-        if (hora.isBefore(config.horaInicio()) || !hora.isBefore(config.horaFin())) {
+        if (hora.isBefore(config.getHoraInicio()) || !hora.isBefore(config.getHoraFin())) {
             return false;
         }
         // Validar que la hora caiga exactamente en un intervalo (múltiplo)
-        long minutosDesdeInicio = java.time.Duration.between(config.horaInicio(), hora).toMinutes();
-        return minutosDesdeInicio % config.intervaloMinutos() == 0;
+        long minutosDesdeInicio = java.time.Duration.between(config.getHoraInicio(), hora).toMinutes();
+        return minutosDesdeInicio % config.getIntervaloMinutos() == 0;
     }
 }
