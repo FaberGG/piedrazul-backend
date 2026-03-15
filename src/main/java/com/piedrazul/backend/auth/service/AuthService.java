@@ -2,6 +2,7 @@ package com.piedrazul.backend.auth.service;
 
 import com.piedrazul.backend.auth.dto.AuthResponse;
 import com.piedrazul.backend.auth.dto.LoginRequest;
+import com.piedrazul.backend.auth.dto.RegisterMedicoRequest;
 import com.piedrazul.backend.auth.dto.RegisterPacienteRequest;
 
 /**
@@ -30,6 +31,30 @@ public interface AuthService {
      * @throws com.piedrazul.backend.shared.exception.BusinessRuleException si el username ya existe
      */
     AuthResponse registerPaciente(RegisterPacienteRequest request);
+
+
+    /**
+     * Registra un nuevo médico. Solo accesible para ADMIN.
+     * Crea en una transacción atómica: Usuario (rol MEDICO) + Medico vinculado.
+     */
+    AuthResponse registerMedico(RegisterMedicoRequest request);
+
+    /**
+     * Registra un nuevo médico. Solo accesible para ADMIN.
+     * Crea en una transacción atómica: Usuario (rol MEDICO) + Medico vinculado.
+     *
+     * @param request datos de registro del médico
+     * @return respuesta con token JWT
+     * @throws com.piedrazul.backend.shared.exception.BusinessRuleException si el username ya existe
+     */
+
+    /**
+     * Registra un usuario ADMIN. Solo para uso en desarrollo.
+     * ELIMINAR o proteger antes de producción.
+     *
+     * @param request credenciales (username + password)
+     * @return respuesta con token JWT
+     */
+    AuthResponse registerAdmin(LoginRequest request);
+
 }
-
-

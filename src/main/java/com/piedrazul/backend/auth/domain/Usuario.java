@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 
 import java.time.LocalDateTime;
 
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
  * Entidad Usuario del sistema.
  * Roles: PACIENTE, AGENDADOR, MEDICO_TERAPISTA, ADMINISTRADOR
  */
+@NamedInterface
 @Entity
 @Table(name = "usuarios")
 @Data
