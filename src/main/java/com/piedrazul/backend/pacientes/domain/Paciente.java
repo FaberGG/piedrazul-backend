@@ -20,7 +20,7 @@ public class Paciente {
     private Long id;
 
     @OneToOne
-    @JoinColumn(name = "usuario_id", nullable = false, unique = true)
+    @JoinColumn(name = "usuario_id", nullable = true, unique = true)
     private Usuario usuario;
 
     @Column(nullable = false, unique = true, length = 20)
