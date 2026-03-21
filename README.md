@@ -374,7 +374,93 @@ Base URL: `http://localhost:8080/api/v1`
 }
 ```
 
-### 7.4 Reportes
+### 7.4 Medicos
+
+## `GET /medicos`
+
+- Auth requerida: Si
+- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `PACIENTE`, `ADMIN`
+- Query params opcionales:
+
+```json
+{
+  "especialidad": "TERAPIA_NEURAL"
+}
+```
+
+- Response 200:
+
+```json
+[
+  {
+    "id": 1,
+    "nombresCompletos": "Clara Ines Cordoba",
+    "especialidad": "TERAPIA_NEURAL",
+    "tipo": "MEDICO",
+    "activo": true,
+    "intervaloMinutos": 15
+  }
+]
+```
+
+## `GET /medicos/{medicoId}/configuracion`
+
+- Auth requerida: Si
+- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `PACIENTE`, `ADMIN`
+- Response 200:
+
+```json
+{
+  "medicoId": 1,
+  "medicoNombre": "Clara Ines Cordoba",
+  "especialidad": "TERAPIA_NEURAL",
+  "activo": true,
+  "diasAtencion": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+  "horaInicio": "07:00:00",
+  "horaFin": "12:00:00",
+  "intervaloMinutos": 15,
+  "capacidadDiaria": 20
+}
+```
+
+## `PUT /medicos/{medicoId}/configuracion`
+
+- Auth requerida: Si
+- Rol requerido: `ADMIN`
+- Body:
+
+```json
+{
+  "diasAtencion": ["MONDAY", "TUESDAY", "THURSDAY", "FRIDAY"],
+  "horaInicio": "07:00:00",
+  "horaFin": "12:00:00",
+  "intervaloMinutos": 15
+}
+```
+
+- Response 200:
+
+```json
+{
+  "medicoId": 1,
+  "medicoNombre": "Clara Ines Cordoba",
+  "especialidad": "TERAPIA_NEURAL",
+  "activo": true,
+  "diasAtencion": ["MONDAY", "TUESDAY", "THURSDAY", "FRIDAY"],
+  "horaInicio": "07:00:00",
+  "horaFin": "12:00:00",
+  "intervaloMinutos": 15,
+  "capacidadDiaria": 20
+}
+```
+
+- Validaciones de negocio implementadas:
+  - `horaFin` debe ser mayor a `horaInicio`
+  - jornada entre 2 y 8 horas
+  - `intervaloMinutos` en: `5, 10, 15, 20, 30, 45, 60`
+  - `diasAtencion` no puede ser vacio
+
+### 7.5 Reportes
 
 ## `GET /reportes/citas`
 
@@ -418,9 +504,9 @@ Base URL: `http://localhost:8080/api/v1`
 
 ## 10) Notas importantes del estado actual
 
-- El modulo `medicos` hoy se expone como API interna de modulo (sin controller REST propio).
+- El modulo `medicos` expone endpoints REST para listado y configuracion de agenda por medico (`/api/v1/medicos`).
 - `PacientesApi` y `MedicosApi` ya se usan en `agenda` para RF2.
-- La configuracion horaria de `medicos` en facade es base por defecto para sprint actual (07:00-12:00, intervalo 15 min, lunes-viernes), mientras se incorpora configuracion detallada por medico.
+- Cada medico se crea con configuracion base (07:00-12:00, intervalo 15 min, lunes-viernes) y puede ser ajustado por `ADMIN` en `PUT /api/v1/medicos/{medicoId}/configuracion`.
 - Si ejecutas tests sin perfil `test`, el contexto puede intentar usar PostgreSQL dev.
 
 ## 11) Comandos utiles de operacion

@@ -23,7 +23,7 @@ public class ReporteController {
     }
 
     @GetMapping("/citas")
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'ADMINISTRADOR')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'ADMIN')")
     public ResponseEntity<ReporteCitasResponse> reporteCitas(
             @RequestParam LocalDate desde,
             @RequestParam LocalDate hasta) {

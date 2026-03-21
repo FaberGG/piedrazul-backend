@@ -11,4 +11,6 @@ public interface MedicosRepository extends JpaRepository<Medico, Long> {
     boolean existsByUsuarioId(Long usuarioId);
 
     List<Medico> findByEstadoIgnoreCase(String estado);
+
+    List<Medico> findByEstadoIgnoreCaseAndEspecialidadIgnoreCase(String estado, String especialidad);
 }

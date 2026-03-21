@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.modulith.NamedInterface;
 
+import java.time.LocalTime;
+
 
 @Entity(name = "MedicosPaciente")
 @Table(name = "medicos")
@@ -38,4 +40,16 @@ public class Medico {
 
     @Column(nullable = false, length = 20)
     private String estado;
+
+    @Column(name = "hora_inicio_atencion")
+    private LocalTime horaInicioAtencion;
+
+    @Column(name = "hora_fin_atencion")
+    private LocalTime horaFinAtencion;
+
+    @Column(name = "intervalo_minutos")
+    private Integer intervaloMinutos;
+
+    @Column(name = "dias_atencion", length = 128)
+    private String diasAtencion;
 }
