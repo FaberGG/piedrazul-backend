@@ -1,6 +1,7 @@
 package com.piedrazul.backend.pacientes.controller;
 
 import com.piedrazul.backend.pacientes.dto.PacienteResponse;
+import com.piedrazul.backend.pacientes.dto.PacienteSugerenciaResponse;
 import com.piedrazul.backend.pacientes.port.PacienteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +18,7 @@ public class PacienteController {
     private final PacienteService pacienteService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MEDICO')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'ADMIN')")
     public ResponseEntity<List<PacienteResponse>> listarTodos() {
         return ResponseEntity.ok(pacienteService.listarTodos());
     }
@@ -26,5 +27,13 @@ public class PacienteController {
     @PreAuthorize("hasRole('ADMIN') or hasRole('MEDICO') or hasRole('PACIENTE')")
     public ResponseEntity<PacienteResponse> buscarPorId(@PathVariable Long id) {
         return ResponseEntity.ok(pacienteService.buscarPorId(id));
+    }
+
+    @GetMapping("/buscar")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<List<PacienteSugerenciaResponse>> buscarPorDocumento(
+            @RequestParam String documento,
+            @RequestParam(required = false, defaultValue = "5") int limit) {
+        return ResponseEntity.ok(pacienteService.buscarPorDocumentoPrefijo(documento, limit));
     }
 }

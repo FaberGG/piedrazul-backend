@@ -374,6 +374,42 @@ Base URL: `http://localhost:8080/api/v1`
 }
 ```
 
+## `GET /pacientes/buscar` (search-as-you-type)
+
+- Auth requerida: Si
+- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN`
+- Query params:
+
+```json
+{
+  "documento": "123",
+  "limit": 5
+}
+```
+
+- Response 200:
+
+```json
+[
+  {
+    "id": 10,
+    "documento": "1234567890",
+    "nombresCompletos": "Juan Carlos Perez Gomez"
+  },
+  {
+    "id": 18,
+    "documento": "1234987654",
+    "nombresCompletos": "Juana Perez Soto"
+  }
+]
+```
+
+- Reglas implementadas:
+  - búsqueda por prefijo (`documento` empieza con el valor ingresado)
+  - mínimo 2 caracteres para devolver sugerencias
+  - `limit` por defecto `5`, máximo `10`
+  - respuesta liviana para autocompletado (sin datos clínicos)
+
 ### 7.4 Medicos
 
 ## `GET /medicos`

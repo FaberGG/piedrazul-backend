@@ -8,7 +8,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity(name = "PacientesPaciente")
-@Table(name = "pacientes")
+@Table(
+        name = "pacientes",
+        indexes = {
+                @Index(name = "idx_pacientes_documento", columnList = "documento")
+        }
+)
 @Data
 @Builder
 @NoArgsConstructor
