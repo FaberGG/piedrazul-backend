@@ -48,7 +48,7 @@ El sistema esta organizado por modulos funcionales y contratos publicos.
 
 ## 3) Estado de requisitos funcionales
 
-- RF1 - Listar agenda por medico y fecha: **endpoint definido, implementacion pendiente** (`UnsupportedOperationException`)
+- RF1 - Listar agenda por medico y fecha: **implementado**
 - RF2 - Crear cita manual: **implementado**
 - RF3 - Agendamiento autonomo: **endpoint definido, implementacion pendiente** (`UnsupportedOperationException`)
 
@@ -303,7 +303,7 @@ Base URL: `http://localhost:8080/api/v1`
 ## `GET /citas/agenda` (RF1)
 
 - Auth requerida: Si
-- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `ADMINISTRADOR`
+- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `ADMIN`
 - Query params:
 
 ```json
@@ -313,7 +313,41 @@ Base URL: `http://localhost:8080/api/v1`
 }
 ```
 
-- Estado actual: endpoint expuesto, **pendiente de implementacion en servicio**.
+- Response 200:
+
+```json
+{
+  "medicoId": 1,
+  "medicoNombre": "Clara Ines Cordoba",
+  "especialidad": "TERAPIA_NEURAL",
+  "fecha": "2026-03-20",
+  "citas": [
+    {
+      "id": 101,
+      "pacienteNombre": "Ana Perez",
+      "pacienteDocumento": "122321",
+      "medicoNombre": "Clara Ines Cordoba",
+      "especialidad": "TERAPIA_NEURAL",
+      "fecha": "2026-03-20",
+      "hora": "07:00:00",
+      "estado": "PROGRAMADA",
+      "observaciones": "Control"
+    }
+  ],
+  "horariosDisponibles": ["07:15:00", "07:30:00"],
+  "totalSlots": 20,
+  "slotsOcupados": 1,
+  "porcentajeOcupacion": 5.0
+}
+```
+
+- Reglas implementadas en servicio:
+  - valida medico existente y activo (`MedicosApi`)
+  - valida configuracion horaria activa (`MedicosApi`)
+  - filtra citas con estado `CANCELADA` para calculos de ocupacion
+  - enriquece respuesta con datos de paciente (`PacientesApi`)
+  - calcula `totalSlots` segun `horaInicio`, `horaFin`, `intervaloMinutos` y `diasAtencion` del medico
+  - `porcentajeOcupacion = (slotsOcupados / totalSlots) * 100` (si `totalSlots` es 0, retorna 0)
 
 ## `POST /citas/autonomo` (RF3)
 
@@ -594,7 +628,6 @@ Base URL: `http://localhost:8080/api/v1`
 
 ## 8) Endpoints de requisitos definidos pero no completos
 
-- RF1: `GET /api/v1/citas/agenda` (servicio pendiente)
 - RF3: `POST /api/v1/citas/autonomo` (servicio pendiente)
 
 ## 9) Flujo recomendado de uso API
@@ -608,7 +641,7 @@ Base URL: `http://localhost:8080/api/v1`
 ## 10) Notas importantes del estado actual
 
 - El modulo `medicos` expone endpoints REST para listado y configuracion de agenda por medico (`/api/v1/medicos`).
-- `PacientesApi` y `MedicosApi` ya se usan en `agenda` para RF2.
+- `PacientesApi` y `MedicosApi` ya se usan en `agenda` para RF1 y RF2.
 - Cada medico se crea con configuracion base (07:00-12:00, intervalo 15 min, lunes-viernes) y puede ser ajustado por `ADMIN` en `PUT /api/v1/medicos/{medicoId}/configuracion`.
 - Si ejecutas tests sin perfil `test`, el contexto puede intentar usar PostgreSQL dev.
 

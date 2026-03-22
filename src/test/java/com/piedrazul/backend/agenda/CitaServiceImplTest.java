@@ -7,9 +7,11 @@ import com.piedrazul.backend.agenda.internal.service.CitaServiceImpl;
 import com.piedrazul.backend.agenda.internal.service.DisponibilidadService;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
-import com.piedrazul.backend.medicos.domain.Medico;
-import com.piedrazul.backend.medicos.repository.MedicosRepository;
+import com.piedrazul.backend.medicos.api.dto.MedicoResumenDTO;
+import com.piedrazul.backend.pacientes.api.PacientesApi;
+import com.piedrazul.backend.pacientes.api.dto.PacienteResumenDTO;
 import com.piedrazul.backend.shared.audit.AuditService;
+import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,7 +25,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,23 +40,22 @@ class CitaServiceImplTest {
     @Mock private DisponibilidadService disponibilidadService;
     @Mock private AuditService auditService;
     @Mock private MedicosApi medicosApi;
-    @Mock private MedicosRepository medicosRepository;
+    @Mock private PacientesApi pacientesApi;
 
     @InjectMocks
     private CitaServiceImpl citaService;
 
-    private Medico medicoActivo;
+    private MedicoResumenDTO medicoActivo;
     private HorarioAtencionDTO horarioEstandar;
     private LocalDate fechaLunes;
 
     @BeforeEach
     void setUp() {
-        medicoActivo = Medico.builder()
+        medicoActivo = MedicoResumenDTO.builder()
                 .id(1L)
-                .nombres("Clara Inés")
-                .apellidos("Córdoba")
+                .nombresCompletos("Clara Ines Cordoba")
                 .especialidad("TERAPIA_NEURAL")
-                .estado("ACTIVO")
+                .activo(true)
                 .build();
 
         fechaLunes = LocalDate.of(2026, 3, 23); // Lunes
@@ -83,9 +83,17 @@ class CitaServiceImplTest {
                 .estado("PROGRAMADA")
                 .build();
 
-        when(medicosRepository.findById(1L)).thenReturn(Optional.of(medicoActivo));
+        PacienteResumenDTO paciente = PacienteResumenDTO.builder()
+                .id(10L)
+                .documento("122321")
+                .nombres("Ana")
+                .apellidos("Perez")
+                .build();
+
+        when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoActivo);
         when(medicosApi.obtenerHorarioAtencion(1L)).thenReturn(horarioEstandar);
         when(citaRepository.findByMedicoIdAndFecha(1L, fechaLunes)).thenReturn(List.of(cita1));
+        when(pacientesApi.obtenerResumenPorId(10L)).thenReturn(paciente);
         when(disponibilidadService.calcularHorariosDisponibles(1L, fechaLunes))
                 .thenReturn(List.of(LocalTime.of(7, 15), LocalTime.of(7, 30)));
 
@@ -95,11 +103,14 @@ class CitaServiceImplTest {
         // ASSERT
         assertThat(respuesta).isNotNull();
         assertThat(respuesta.getMedicoId()).isEqualTo(1L);
-        assertThat(respuesta.getMedicoNombre()).isEqualTo("Clara Inés Córdoba");
+        assertThat(respuesta.getMedicoNombre()).isEqualTo("Clara Ines Cordoba");
         assertThat(respuesta.getEspecialidad()).isEqualTo("TERAPIA_NEURAL");
         assertThat(respuesta.getFecha()).isEqualTo(fechaLunes);
         assertThat(respuesta.getCitas()).hasSize(1);
+        assertThat(respuesta.getCitas().get(0).getPacienteNombre()).isEqualTo("Ana Perez");
+        assertThat(respuesta.getCitas().get(0).getPacienteDocumento()).isEqualTo("122321");
         assertThat(respuesta.getHorariosDisponibles()).hasSize(2);
+        assertThat(respuesta.getHorariosDisponibles()).containsExactly("07:15:00", "07:30:00");
         assertThat(respuesta.getTotalSlots()).isEqualTo(20); // 300 min / 15 = 20
         assertThat(respuesta.getSlotsOcupados()).isEqualTo(1);
         assertThat(respuesta.getPorcentajeOcupacion()).isEqualTo(5.0); // 1/20 * 100
@@ -109,7 +120,7 @@ class CitaServiceImplTest {
     @DisplayName("RF1 — Debe lanzar excepción si el médico no existe")
     void listarAgendaMedico_debeLanzarExcepcionSiMedicoNoExiste() {
         // ARRANGE
-        when(medicosRepository.findById(99L)).thenReturn(Optional.empty());
+        when(medicosApi.obtenerResumenMedico(99L)).thenReturn(null);
 
         // ACT & ASSERT
         assertThatThrownBy(() -> citaService.listarAgendaMedico(99L, fechaLunes))
@@ -117,10 +128,27 @@ class CitaServiceImplTest {
     }
 
     @Test
+    @DisplayName("RF1 — Debe lanzar excepción si el médico está inactivo")
+    void listarAgendaMedico_debeLanzarExcepcionSiMedicoInactivo() {
+        MedicoResumenDTO medicoInactivo = MedicoResumenDTO.builder()
+                .id(1L)
+                .nombresCompletos("Medico Inactivo")
+                .especialidad("GENERAL")
+                .activo(false)
+                .build();
+
+        when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoInactivo);
+
+        assertThatThrownBy(() -> citaService.listarAgendaMedico(1L, fechaLunes))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("activo");
+    }
+
+    @Test
     @DisplayName("RF1 — Debe retornar 0% ocupación si no hay citas en el día")
     void listarAgendaMedico_sinCitasDebeMostrarCeroOcupacion() {
         // ARRANGE
-        when(medicosRepository.findById(1L)).thenReturn(Optional.of(medicoActivo));
+        when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoActivo);
         when(medicosApi.obtenerHorarioAtencion(1L)).thenReturn(horarioEstandar);
         when(citaRepository.findByMedicoIdAndFecha(1L, fechaLunes)).thenReturn(List.of());
         when(disponibilidadService.calcularHorariosDisponibles(1L, fechaLunes))
@@ -148,7 +176,7 @@ class CitaServiceImplTest {
                 .estado("CANCELADA")
                 .build();
 
-        when(medicosRepository.findById(1L)).thenReturn(Optional.of(medicoActivo));
+        when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoActivo);
         when(medicosApi.obtenerHorarioAtencion(1L)).thenReturn(horarioEstandar);
         when(citaRepository.findByMedicoIdAndFecha(1L, fechaLunes)).thenReturn(List.of(citaCancelada));
         when(disponibilidadService.calcularHorariosDisponibles(1L, fechaLunes))
@@ -159,5 +187,22 @@ class CitaServiceImplTest {
 
         // ASSERT
         assertThat(respuesta.getSlotsOcupados()).isZero(); // La cancelada no cuenta
+        assertThat(respuesta.getCitas()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("RF1 — Si el medico no atiende ese dia, no debe reportar slots teoricos")
+    void listarAgendaMedico_medicoNoAtiendeDiaDebeRetornarTotalSlotsCero() {
+        LocalDate domingo = LocalDate.of(2026, 3, 22);
+
+        when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoActivo);
+        when(medicosApi.obtenerHorarioAtencion(1L)).thenReturn(horarioEstandar);
+        when(citaRepository.findByMedicoIdAndFecha(1L, domingo)).thenReturn(List.of());
+        when(disponibilidadService.calcularHorariosDisponibles(1L, domingo)).thenReturn(List.of());
+
+        AgendaResponse respuesta = citaService.listarAgendaMedico(1L, domingo);
+
+        assertThat(respuesta.getTotalSlots()).isZero();
+        assertThat(respuesta.getHorariosDisponibles()).isEmpty();
     }
 }

@@ -58,6 +58,7 @@ public class CitaServiceImpl implements CitaService {
     private static final int DURACION_MINIMA_ATENCION_MINUTOS = 15;
     private static final int DURACION_PRIORIDAD_MINUTOS = 5;
     private static final DateTimeFormatter HORA_PANEL_FORMAT = DateTimeFormatter.ofPattern("h:mm a", Locale.US);
+    private static final DateTimeFormatter HORA_AGENDA_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private final CitaRepository        citaRepository;
     private final DisponibilidadService disponibilidadService;
@@ -84,30 +85,87 @@ public class CitaServiceImpl implements CitaService {
     /**
      * {@inheritDoc}
      *
-     * FLUJO MODULAR - PASOS A IMPLEMENTAR:
-     * 1. Validación de Identidad y Configuración (Comunicación con Médicos):
-     * - Llamar a medicosApi.obtenerConfiguracionAgenda(medicoId).
-     * - Este DTO debe incluir: horaInicio, horaFin, intervaloMinutos y si el médico está activo.
-     * -> Si no existe o está inactivo: throw ResourceNotFoundException o BusinessRuleException.
-     * 2. Obtención de Citas (Interno Agenda):
-     * - List<Cita> citas = citaRepository.findByMedicoIdAndFecha(medicoId, fecha).
-     * - Nota: Esta lista solo tiene IDs de pacientes.
-     * 3. Enriquecimiento de Datos (Comunicación con Pacientes):
-     * - Extraer Set<Long> pacienteIds de la lista de citas.
-     * - Llamar a pacientesApi.obtenerNombresResumen(pacienteIds).
-     * - Recibir un Map<Long, PacienteResumenDTO> para evitar múltiples llamadas.
-     * 4. Cálculo de Disponibilidad y Ocupación (Lógica de Negocio de Agenda):
-     * - Generar la lista de todos los 'slots' posibles usando la configuración obtenida en el Paso 1.
-     * - Comparar slots generados vs citas existentes para marcar cuáles están ocupados.
-     * - Calcular: porcentajeOcupacion = (citas.size() / totalSlotsPosibles) * 100.
-     * 5. Mapeo y Construcción de Respuesta:
-     * - Transformar cada Cita en CitaResponse, inyectando el nombre del paciente desde el Map del Paso 3.
-     * - Construir AgendaResponse con la lista de slots (ocupados/libres) y métricas de ocupación.
+     * Flujo implementado:
+     * 1) Valida que el medico exista y este activo usando {@link MedicosApi}.
+     * 2) Obtiene la configuracion horaria activa del medico (intervalo, jornada y dias de atencion).
+     * 3) Consulta las citas del dia y filtra las canceladas para los calculos de ocupacion.
+     * 4) Enriquece cada cita con datos resumidos del paciente usando {@link PacientesApi}.
+     * 5) Calcula disponibilidad y metricas ({@code totalSlots}, {@code slotsOcupados},
+     *    {@code porcentajeOcupacion}) segun configuracion del medico.
+     * 6) Retorna un {@link AgendaResponse} listo para consumo de panel de agenda.
      */
     @Override
     @Transactional(readOnly = true)
     public AgendaResponse listarAgendaMedico(Long medicoId, LocalDate fecha) {
-        throw new UnsupportedOperationException("TODO RF1: implementar listarAgendaMedico");
+        MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(medicoId);
+        if (medico == null) {
+            throw new ResourceNotFoundException("Medico", medicoId);
+        }
+
+        if (!medico.isActivo()) {
+            throw new BusinessRuleException("El medico no esta activo");
+        }
+
+        HorarioAtencionDTO horario = medicosApi.obtenerHorarioAtencion(medicoId);
+        if (horario == null || !horario.isActivo()) {
+            throw new BusinessRuleException("El medico no tiene configuracion horaria activa");
+        }
+
+        List<Cita> citasActivas = citaRepository.findByMedicoIdAndFecha(medicoId, fecha)
+                .stream()
+                .filter(cita -> !"CANCELADA".equalsIgnoreCase(cita.getEstado()))
+                .sorted(Comparator.comparing(Cita::getHora))
+                .toList();
+
+        Map<Long, PacienteResumenDTO> pacientesPorId = new HashMap<>();
+        for (Cita cita : citasActivas) {
+            pacientesPorId.computeIfAbsent(cita.getPacienteId(), pacientesApi::obtenerResumenPorId);
+        }
+
+        List<CitaResponse> citas = citasActivas.stream()
+                .map(cita -> {
+                    PacienteResumenDTO paciente = pacientesPorId.get(cita.getPacienteId());
+                    String nombrePaciente = paciente != null
+                            ? (paciente.getNombres() + " " + paciente.getApellidos()).trim()
+                            : "Paciente no encontrado";
+
+                    return CitaResponse.builder()
+                            .id(cita.getId())
+                            .pacienteNombre(nombrePaciente)
+                            .pacienteDocumento(paciente != null ? paciente.getDocumento() : null)
+                            .medicoNombre(medico.getNombresCompletos())
+                            .especialidad(medico.getEspecialidad())
+                            .fecha(cita.getFecha())
+                            .hora(cita.getHora())
+                            .estado(cita.getEstado())
+                            .observaciones(cita.getObservaciones())
+                            .build();
+                })
+                .toList();
+
+        List<String> horariosDisponibles = disponibilidadService.calcularHorariosDisponibles(medicoId, fecha)
+                .stream()
+                .sorted()
+                .map(hora -> hora.format(HORA_AGENDA_FORMAT))
+                .toList();
+
+        int totalSlots = calcularTotalSlots(horario, fecha);
+        int slotsOcupados = citasActivas.size();
+        double porcentajeOcupacion = totalSlots > 0
+                ? (slotsOcupados * 100.0) / totalSlots
+                : 0.0;
+
+        return AgendaResponse.builder()
+                .medicoId(medicoId)
+                .medicoNombre(medico.getNombresCompletos())
+                .especialidad(medico.getEspecialidad())
+                .fecha(fecha)
+                .citas(citas)
+                .horariosDisponibles(horariosDisponibles)
+                .totalSlots(totalSlots)
+                .slotsOcupados(slotsOcupados)
+                .porcentajeOcupacion(porcentajeOcupacion)
+                .build();
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -522,6 +580,21 @@ public class CitaServiceImpl implements CitaService {
 
     private long minutosEntre(LocalTime inicio, LocalTime fin) {
         return java.time.Duration.between(inicio, fin).toMinutes();
+    }
+
+    private int calcularTotalSlots(HorarioAtencionDTO horario, LocalDate fecha) {
+        if (horario.getDiasAtencion() == null || !horario.getDiasAtencion().contains(fecha.getDayOfWeek())) {
+            return 0;
+        }
+        if (horario.getHoraInicio() == null || horario.getHoraFin() == null || horario.getIntervaloMinutos() <= 0) {
+            return 0;
+        }
+        if (!horario.getHoraInicio().isBefore(horario.getHoraFin())) {
+            return 0;
+        }
+
+        long minutosJornada = java.time.Duration.between(horario.getHoraInicio(), horario.getHoraFin()).toMinutes();
+        return (int) (minutosJornada / horario.getIntervaloMinutos());
     }
 
     private LocalDateTime calcularPrimerSlotDisponible(LocalDate fecha, List<SlotPanel> slotsPanel) {
