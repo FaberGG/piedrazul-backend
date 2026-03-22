@@ -332,6 +332,73 @@ Base URL: `http://localhost:8080/api/v1`
 
 - Estado actual: endpoint expuesto, **pendiente de implementacion en servicio**.
 
+## `GET /citas/agenda-dinamica`
+
+- Auth requerida: Si
+- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN`
+- Query params:
+
+```json
+{
+  "medicoId": 1,
+  "fecha": "2026-06-10"
+}
+```
+
+- Response 200 (estructura para UI declarativa):
+
+```json
+{
+  "fecha": "2026-06-10",
+  "medico": "Dra. Maria Cordoba",
+  "primerSlotDisponible": "2026-06-10T09:25:00",
+  "bloques": [
+    {
+      "rango": "9:00 AM - 10:00 AM",
+      "estaExpandido": true,
+      "slots": [
+        {
+          "hora": "9:00 AM",
+          "estado": "OCUPADO",
+          "citaId": 120,
+          "pacienteDocumento": "1234567890",
+          "pacienteNombres": "Juan Jose",
+          "pacienteApellidos": "Perez",
+          "pacienteCelular": "3001234567",
+          "permiteAbrirPrioridadPosterior": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+- Regla clave: `permiteAbrirPrioridadPosterior` solo se marca en el inicio de una cita ocupada donde el backend valida flexibilidad real para insertar 5 minutos.
+
+## `POST /citas/prioridad`
+
+- Auth requerida: Si
+- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN`
+- Body:
+
+```json
+{
+  "documento": "1234567890",
+  "nombres": "Paciente",
+  "apellidos": "Prioritario",
+  "celular": "3001234567",
+  "genero": "MASCULINO",
+  "fechaNacimiento": "1990-01-01",
+  "correo": "prioridad@email.com",
+  "medicoId": 1,
+  "fecha": "2026-06-10",
+  "horaReferencia": "09:00:00",
+  "observaciones": "Sobrecupo autorizado"
+}
+```
+
+- Resultado: crea una cita de tipo `PRIORIDAD` de 5 minutos inmediatamente posterior a la cita de referencia y recorta la cita vecina al minimo permitido cuando aplica.
+
 ### 7.3 Pacientes
 
 ## `GET /pacientes`

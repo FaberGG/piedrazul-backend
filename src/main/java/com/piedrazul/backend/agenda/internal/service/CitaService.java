@@ -3,8 +3,10 @@ package com.piedrazul.backend.agenda.internal.service;
 import com.piedrazul.backend.agenda.api.AgendaApi;
 import com.piedrazul.backend.agenda.internal.dto.AgendarAutonomoRequest;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
+import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
+import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
 
 import java.time.LocalDate;
@@ -50,6 +52,17 @@ public interface CitaService {
      * Obtiene el primer horario disponible global entre medicos activos.
      */
     PrimerHorarioDisponibleResponse obtenerPrimerHorarioDisponibleGlobal(LocalDate desde);
+
+    /**
+     * Consulta agregada para panel de agendamiento en frontend.
+     */
+    AgendaDinamicaResponse obtenerAgendaDinamica(Long medicoId, LocalDate fecha);
+
+    /**
+     * Inserta una cita prioritaria de 5 minutos inmediatamente despues de una cita de referencia,
+     * recortando citas vecinas cuando sea factible.
+     */
+    CitaResponse crearCitaPrioritaria(CrearCitaPrioritariaRequest request);
 
     /**
      * RF3 — Agendamiento autónomo por parte del paciente.

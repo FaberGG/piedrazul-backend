@@ -1,9 +1,11 @@
 package com.piedrazul.backend.agenda.internal.controller;
 
 import com.piedrazul.backend.agenda.internal.dto.AgendarAutonomoRequest;
+import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaResponse;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
+import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
 import com.piedrazul.backend.agenda.internal.service.CitaService;
 import jakarta.validation.Valid;
@@ -66,6 +68,27 @@ public class CitaController {
     public ResponseEntity<PrimerHorarioDisponibleResponse> primerHorarioGlobal(
             @RequestParam(required = false) LocalDate desde) {
         return ResponseEntity.ok(citaService.obtenerPrimerHorarioDisponibleGlobal(desde));
+    }
+
+    /**
+     * Endpoint agregado para renderizar el panel de agendamiento del dia.
+     */
+    @GetMapping("/agenda-dinamica")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<AgendaDinamicaResponse> agendaDinamica(
+            @RequestParam Long medicoId,
+            @RequestParam LocalDate fecha) {
+        return ResponseEntity.ok(citaService.obtenerAgendaDinamica(medicoId, fecha));
+    }
+
+    /**
+     * Inserta una cita prioritaria de 5 minutos despues de una cita de referencia.
+     */
+    @PostMapping("/prioridad")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<CitaResponse> crearCitaPrioritaria(
+            @Valid @RequestBody CrearCitaPrioritariaRequest request) {
+        return ResponseEntity.status(201).body(citaService.crearCitaPrioritaria(request));
     }
 }
 
