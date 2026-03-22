@@ -12,6 +12,13 @@
  *  agenda.domain, agenda.repository, agenda.service, agenda.controller
  */
 @org.springframework.modulith.ApplicationModule(displayName = "Agenda",
-        allowedDependencies = {"medicos::api", "medicos::api-dto"})
+        allowedDependencies = {
+                "medicos::api",
+                "medicos::api-dto",
+                "pacientes::api",
+                "pacientes::api-dto",
+                "shared::exception",
+                "shared::audit"
+        })
 package com.piedrazul.backend.agenda;
 

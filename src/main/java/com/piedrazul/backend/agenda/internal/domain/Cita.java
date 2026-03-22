@@ -41,6 +41,12 @@ public class Cita {
     @Column(nullable = false)
     private LocalTime hora;
 
+    @Column(name = "duracion_minutos")
+    private Integer duracionMinutos;
+
+    @Column(name = "tipo_cita", length = 20)
+    private String tipoCita;
+
     @Column(nullable = false, length = 20)
     private String estado;
 
@@ -57,6 +63,7 @@ public class Cita {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         if (this.estado == null) this.estado = "PROGRAMADA";
+        if (this.tipoCita == null) this.tipoCita = "ESTANDAR";
     }
 }
 

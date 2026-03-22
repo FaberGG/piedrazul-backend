@@ -51,10 +51,12 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
     @Override
     public boolean estaDisponible(Long medicoId, LocalDate fecha, LocalTime hora) {
         // Validación optimizada: Primero ver si el slot está físicamente libre en nuestra DB
-//        boolean slotOcupadoEnAgenda = citaRepository.existsByMedicoIdAndFechaAndHoraAndEstadoNot(
-//                medicoId, fecha, hora, "CANCELADA");
-//
-//        if (slotOcupadoEnAgenda) return false;
+        boolean slotOcupadoEnAgenda = citaRepository.existsByMedicoIdAndFechaAndHoraAndEstadoNot(
+                medicoId, fecha, hora, "CANCELADA");
+
+        if (slotOcupadoEnAgenda) {
+            return false;
+        }
 
         // Segundo: Validar que la hora coincida con la configuración del médico
         HorarioAtencionDTO config = medicosApi.obtenerHorarioAtencion(medicoId);

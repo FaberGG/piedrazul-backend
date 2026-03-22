@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -21,6 +22,10 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
     /** Cuenta citas futuras activas de un paciente (RF3 — límite de 3 citas). */
     long countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(
             Long pacienteId, String estado, LocalDate fecha);
+
+    /** Valida si el medico ya tiene una cita activa en un slot puntual. */
+    boolean existsByMedicoIdAndFechaAndHoraAndEstadoNot(
+            Long medicoId, LocalDate fecha, LocalTime hora, String estado);
 
     /** Lista todas las citas en un rango de fechas (usado por AgendaFacade para reportes). */
     List<Cita> findByFechaBetween(LocalDate desde, LocalDate hasta);

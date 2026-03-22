@@ -2,6 +2,7 @@ package com.piedrazul.backend.pacientes.port;
 
 import com.piedrazul.backend.auth.domain.Usuario;
 import com.piedrazul.backend.pacientes.dto.PacienteResponse;
+import com.piedrazul.backend.pacientes.dto.PacienteSugerenciaResponse;
 import org.springframework.modulith.NamedInterface;
 
 import java.time.LocalDate;
@@ -19,4 +20,6 @@ public interface PacienteService {
     List<PacienteResponse> listarTodos();
 
     PacienteResponse buscarPorId(Long id);
+
+    List<PacienteSugerenciaResponse> buscarPorDocumentoPrefijo(String documento, int limit);
 }
