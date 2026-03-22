@@ -1,90 +1,109 @@
 package com.piedrazul.backend.agenda.internal.service;
 
+import com.piedrazul.backend.agenda.internal.domain.Cita;
 import com.piedrazul.backend.agenda.internal.dto.AgendarAutonomoRequest;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
+import com.piedrazul.backend.medicos.api.MedicosApi;
+import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
+import com.piedrazul.backend.medicos.repository.MedicosRepository;
+import com.piedrazul.backend.medicos.domain.Medico;
 import com.piedrazul.backend.shared.audit.AuditService;
+import com.piedrazul.backend.shared.exception.BusinessRuleException;
+import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
 
 /**
  * Implementación del servicio de citas (módulo AGENDA).
- *
- * DEPENDENCIAS NECESARIAS para implementar cada método:
- *  - citaRepository       → persistir y consultar citas
- *  - disponibilidadService → verificar slots libres
- *  - auditService         → registrar operaciones críticas
- *
- * OBTENER USUARIO AUTENTICADO (en métodos que lo necesiten):
- *  Long userId = (Long) SecurityContextHolder.getContext()
- *                        .getAuthentication().getPrincipal();
- *  // Requiere configurar CustomUserDetails en JwtAuthFilter.
+ * RF1: Listar agenda de un médico por fecha.
+ * RF2: Crear cita manual.
  */
 @Service
 @Transactional
 public class CitaServiceImpl implements CitaService {
 
-    private final CitaRepository        citaRepository;
+    private final CitaRepository citaRepository;
     private final DisponibilidadService disponibilidadService;
-    private final AuditService          auditService;
+    private final AuditService auditService;
+    private final MedicosApi medicosApi;
+    private final MedicosRepository medicosRepository;
 
     public CitaServiceImpl(CitaRepository citaRepository,
                            DisponibilidadService disponibilidadService,
-                           AuditService auditService) {
-        this.citaRepository        = citaRepository;
+                           AuditService auditService,
+                           MedicosApi medicosApi,
+                           MedicosRepository medicosRepository) {
+        this.citaRepository       = citaRepository;
         this.disponibilidadService = disponibilidadService;
         this.auditService          = auditService;
+        this.medicosApi            = medicosApi;
+        this.medicosRepository     = medicosRepository;
     }
 
     // ─────────────────────────────────────────────────────────────
     // RF1 — Listar agenda de un médico por fecha
     // ─────────────────────────────────────────────────────────────
 
-    /**
-     * {@inheritDoc}
-     *
-     * FLUJO MODULAR - PASOS A IMPLEMENTAR:
-     * 1. Validación de Identidad y Configuración (Comunicación con Médicos):
-     * - Llamar a medicosApi.obtenerConfiguracionAgenda(medicoId).
-     * - Este DTO debe incluir: horaInicio, horaFin, intervaloMinutos y si el médico está activo.
-     * -> Si no existe o está inactivo: throw ResourceNotFoundException o BusinessRuleException.
-     * 2. Obtención de Citas (Interno Agenda):
-     * - List<Cita> citas = citaRepository.findByMedicoIdAndFecha(medicoId, fecha).
-     * - Nota: Esta lista solo tiene IDs de pacientes.
-     * 3. Enriquecimiento de Datos (Comunicación con Pacientes):
-     * - Extraer Set<Long> pacienteIds de la lista de citas.
-     * - Llamar a pacientesApi.obtenerNombresResumen(pacienteIds).
-     * - Recibir un Map<Long, PacienteResumenDTO> para evitar múltiples llamadas.
-     * 4. Cálculo de Disponibilidad y Ocupación (Lógica de Negocio de Agenda):
-     * - Generar la lista de todos los 'slots' posibles usando la configuración obtenida en el Paso 1.
-     * - Comparar slots generados vs citas existentes para marcar cuáles están ocupados.
-     * - Calcular: porcentajeOcupacion = (citas.size() / totalSlotsPosibles) * 100.
-     * 5. Mapeo y Construcción de Respuesta:
-     * - Transformar cada Cita en CitaResponse, inyectando el nombre del paciente desde el Map del Paso 3.
-     * - Construir AgendaResponse con la lista de slots (ocupados/libres) y métricas de ocupación.
-     */
     @Override
     @Transactional(readOnly = true)
     public AgendaResponse listarAgendaMedico(Long medicoId, LocalDate fecha) {
-        throw new UnsupportedOperationException("TODO RF1: implementar listarAgendaMedico");
+
+        // 1. Obtener datos del médico
+        Medico medico = medicosRepository.findById(medicoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Médico", medicoId));
+
+        // 2. Obtener configuración de horario del médico
+        HorarioAtencionDTO config = medicosApi.obtenerHorarioAtencion(medicoId);
+
+        if (config == null) {
+            throw new ResourceNotFoundException("Configuración de horario para médico", medicoId);
+        }
+
+        // 3. Obtener citas del día desde el repositorio
+        List<Cita> citasDelDia = citaRepository.findByMedicoIdAndFecha(medicoId, fecha);
+
+        // 4. Calcular horarios disponibles
+        List<LocalTime> disponibles = disponibilidadService.calcularHorariosDisponibles(medicoId, fecha);
+
+        // 5. Calcular capacidad total (slots teóricos)
+        int totalSlots = calcularTotalSlots(config);
+        int slotsOcupados = (int) citasDelDia.stream()
+                .filter(c -> !"CANCELADA".equals(c.getEstado()))
+                .count();
+        double porcentajeOcupacion = totalSlots > 0
+                ? (slotsOcupados * 100.0) / totalSlots
+                : 0.0;
+
+        // 6. Mapear citas a DTOs de respuesta
+        List<CitaResponse> citasDto = citasDelDia.stream()
+                .map(this::mapToCitaResponse)
+                .toList();
+
+        // 7. Construir y retornar respuesta
+        return AgendaResponse.builder()
+                .medicoId(medicoId)
+                .medicoNombre(medico.getNombres() + " " + medico.getApellidos())
+                .especialidad(medico.getEspecialidad())
+                .fecha(fecha)
+                .citas(citasDto)
+                .horariosDisponibles(disponibles.stream().map(LocalTime::toString).toList())
+                .totalSlots(totalSlots)
+                .slotsOcupados(slotsOcupados)
+                .porcentajeOcupacion(porcentajeOcupacion)
+                .build();
     }
 
     // ─────────────────────────────────────────────────────────────
     // RF2 — Crear cita manual
     // ─────────────────────────────────────────────────────────────
 
-    /**
-     * {@inheritDoc}
-     * PASOS A IMPLEMENTAR:
-     * 1. comunicacion modulo Pacientes
-     * 2. verificar disponibilidad con disponibilidadService.estaDisponible(request.medicoId, request.fecha, request.hora)
-     * 3. crear y guardar cita con citaRepository.save(cita)
-     * 4. registrar operación en auditService.registrar(...)
-     */
     @Override
     public CitaResponse crearCitaManual(CrearCitaManualRequest request) {
         throw new UnsupportedOperationException("TODO RF2: implementar crearCitaManual");
@@ -94,36 +113,49 @@ public class CitaServiceImpl implements CitaService {
     // RF3 — Agendamiento autónomo (paciente)
     // ─────────────────────────────────────────────────────────────
 
-    /**
-     * {@inheritDoc}
-     *
-     * FLUJO MODULAR - PASOS A IMPLEMENTAR:
-     * 1. Identificación del Paciente:
-     * - Obtener el 'usuarioId' del SecurityContextHolder.
-     * - Llamar a pacientesApi.buscarIdPorUsuarioId(usuarioId).
-     * -> Si no existe: throw EntityNotFoundException("El usuario no tiene un perfil de paciente asociado").
-     * 2. Validación de Reglas de Negocio (Internas de Agenda):
-     * - Consultar citaRepository.countByPacienteIdAndEstadoAndFechaPositiva(...)
-     * -> Si >= 3: throw BusinessRuleException("Límite de 3 citas futuras alcanzado").
-     * 3. Validación de Disponibilidad (Comunicación con Médicos):
-     * - Llamar a medicosApi.verificarHabilitacionParaCita(request.medicoId, request.fecha, request.hora).
-     * - Esta llamada interna valida: estado ACTIVO del médico, franja horaria y feriados.
-     * -> Si retorna false: throw BusinessRuleException("El médico no está disponible en el horario seleccionado").
-     * 4. Validación de Cruce de Horarios (Interna de Agenda):
-     * - verificarDisponibilidadInterna(request.medicoId, request.fecha, request.hora).
-     * - Comprobar que no exista otra Cita en ese slot exacto para ese medicoId.
-     * 5. Persistencia (Desacoplada):
-     * - Crear entidad Cita usando solo pacienteId (Long) y medicoId (Long).
-     * - Usar @Lock(PESSIMISTIC_WRITE) en la consulta de validación previa para evitar Race Conditions.
-     * - citaRepository.save(cita).
-     * 6. Notificación y Auditoría (Asíncrona/Eventos):
-     * - Publicar evento interno: CitaProgramadaEvent(citaId, pacienteId, medicoId).
-     * - Los módulos de Auditoría y Notificaciones reaccionarán de forma independiente.
-     * 7. Retornar CitaResponse (Mapeado desde la entidad).
-     */
     @Override
     public CitaResponse agendarAutonomo(AgendarAutonomoRequest request) {
         throw new UnsupportedOperationException("TODO RF3: implementar agendarAutonomo");
     }
-}
 
+    // ─────────────────────────────────────────────────────────────
+    // Métodos auxiliares privados
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Calcula la cantidad total de slots posibles en un día,
+     * usando la configuración del médico.
+     * Fórmula: (horaFin - horaInicio en minutos) / intervaloMinutos
+     */
+    private int calcularTotalSlots(HorarioAtencionDTO config) {
+        if (config.getHoraInicio() == null || config.getHoraFin() == null
+                || config.getIntervaloMinutos() <= 0) {
+            return 0;
+        }
+        long minutosTotales = java.time.Duration
+                .between(config.getHoraInicio(), config.getHoraFin())
+                .toMinutes();
+        return (int) (minutosTotales / config.getIntervaloMinutos());
+    }
+
+    /**
+     * Mapea una entidad Cita a su DTO de respuesta.
+     * Nota: En esta versión, los campos del paciente y médico se obtienen
+     * desde los IDs almacenados en la cita. Si necesitas nombres, inyecta
+     * los repositorios/APIs de pacientes y médicos aquí.
+     */
+    private CitaResponse mapToCitaResponse(Cita cita) {
+        return CitaResponse.builder()
+                .id(cita.getId())
+                // Por ahora mostramos el documento/id del paciente
+                // Cuando tengas el módulo de pacientes integrado,
+                // reemplaza con pacientesApi.obtenerNombre(cita.getPacienteId())
+                .pacienteDocumento("ID: " + cita.getPacienteId())
+                .pacienteNombre("Paciente #" + cita.getPacienteId())
+                .fecha(cita.getFecha())
+                .hora(cita.getHora())
+                .estado(cita.getEstado())
+                .observaciones(cita.getObservaciones())
+                .build();
+    }
+}
