@@ -48,6 +48,15 @@ public class PacientesFacade implements PacientesApi {
         return toResumen(paciente);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PacienteResumenDTO buscarPorUsuarioId(Long usuarioId) {
+        Paciente paciente = pacientesRepository.findByUsuarioId(usuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente", usuarioId));
+
+        return toResumen(paciente);
+    }
+
     private PacienteResumenDTO toResumen(Paciente paciente) {
         return PacienteResumenDTO.builder()
                 .id(paciente.getId())

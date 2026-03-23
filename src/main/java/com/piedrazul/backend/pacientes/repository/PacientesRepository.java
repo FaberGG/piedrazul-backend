@@ -17,5 +17,7 @@ public interface PacientesRepository extends JpaRepository<Paciente, Long> {
 
     boolean existsByDocumento(String documento);
 
+    optional<Paciente> findByUsuarioId(long usuarioId)
+
     List<Paciente> findByDocumentoStartingWithOrderByDocumentoAsc(String documento, Pageable pageable);
 }
