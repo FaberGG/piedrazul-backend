@@ -10,3 +10,7 @@ spring:
 app:
   jwt:
     secret: ${JWT_SECRET}
+  cors:
+    # TODO: definir dominios frontend reales antes de desplegar.
+    # Ejemplo: ["https://app.piedrazul.com", "https://admin.piedrazul.com"]
+    allowed-origins: []

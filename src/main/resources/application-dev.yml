@@ -12,3 +12,6 @@ spring:
 app:
   jwt:
     secret: dev-secret-key-must-be-at-least-512-bits-long-for-hmac-sha512-algorithm-replace-in-prod
+  cors:
+    # En desarrollo se permite cualquier origen para facilitar pruebas locales.
+    allowed-origin-patterns: ["*"]
