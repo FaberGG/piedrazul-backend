@@ -12,6 +12,6 @@ public interface PacientesApi {
 
     PacienteResumenDTO obtenerResumenPorId(Long pacienteId);
 
-    PacienteResumenDTO buscarPorUsuarioID(Long usuarioId);
+    PacienteResumenDTO buscarPorUsuarioId(Long usuarioId);
 }
 
