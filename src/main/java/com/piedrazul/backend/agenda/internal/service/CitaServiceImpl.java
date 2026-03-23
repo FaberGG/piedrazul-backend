@@ -234,15 +234,15 @@ public class CitaServiceImpl implements CitaService {
             throw new BusinessRuleException("Límite de 3 citas alcanzado");
         }
 
-        MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(request.getMedicoId());
-        if (medico == null) {
+        MedicoResumenDTO medicoResumenDTO = medicosApi.obtenerResumenMedico(request.getMedicoId());
+        if (medicoResumenDTO == null) {
             throw new ResourceNotFoundException("Medico", request.getMedicoId());
         }
-        if (!medico.isActivo()) {
+        if (!medicoResumenDTO.isActivo()) {
             throw new BusinessRuleException("El medico no esta activo");
         }
 
-        boolean disponibilidad = disponibilidadService.estaDisponible(medico.getId(), request.getFecha(), request.getHora());
+        boolean disponibilidad = disponibilidadService.estaDisponible(medicoResumenDTO.getId(), request.getFecha(), request.getHora());
         if(!disponibilidad) {
             throw new BusinessRuleException("Horario no disponible");
         }
@@ -268,7 +268,7 @@ public class CitaServiceImpl implements CitaService {
                 "N/A"
         );
 
-        return mapToResponse(guardada, paciente, medico);
+        return mapToResponse(guardada, pacienteResumenDTO, medicoResumenDTO);
     }
 
     private LocalTime parseHora(String hora) {

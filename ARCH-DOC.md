@@ -35,7 +35,7 @@ Cubre: estructura modular, modelo de datos, API REST, seguridad/autenticación, 
 ---
 
 ## 2. Contexto del Proyecto
-
+    
 ### Situación Actual
 
 - Sistema de escritorio para agendamiento + solicitudes por WhatsApp/teléfono (solo 2–5 PM)
