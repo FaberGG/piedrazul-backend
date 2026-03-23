@@ -1,663 +1,258 @@
+![Portada Clinica Piedrazul](docs/assets/portada-clinica-piedrazul.jpg)
+
 # Piedrazul Backend
+La Red de Servicios Medicos de Piedrazul atiende procesos de agendamiento para medicina alternativa con alta demanda diaria. El backend se construye para reemplazar practicas manuales y sistemas previos con una plataforma web segura, trazable y mantenible.
 
-Backend del sistema de agendamiento medico de Piedrazul, implementado como monolito modular con Spring Boot.
+Objetivos de producto:
 
-Este README refleja el estado actual del codigo, incluyendo la arquitectura con los modulos `pacientes` y `medicos`, los endpoints disponibles y el estado funcional de los requisitos RF1, RF2 y RF3.
+- Centralizar la gestion de citas.
+- Reducir friccion operativa en agenda clinica.
+- Aplicar control de acceso por roles.
+- Habilitar evolucion hacia autogestion de pacientes.
 
-## Checklist de esta guia
+Roles principales:
 
-- [x] Arquitectura modular actualizada
-- [x] Requisitos funcionales y estado real
-- [x] Configuracion de entorno y ejecucion
-- [x] Seguridad JWT y roles
-- [x] Endpoints HTTP con URL, headers, roles, request/response JSON
-- [x] Endpoints definidos pero no implementados (marcados)
+- Administrador
+- Agendador de citas
+- Medico/Terapista
+- Paciente
 
-## 1) Stack tecnologico
+Documento de respaldo: [`01-contexto.md`](docs/01-contexto.md)
 
-- Java 17 (proyecto), Maven Wrapper
-- Spring Boot (starter parent actual en `pom.xml`)
-- Spring Security + JWT
-- Spring Data JPA + Hibernate
-- PostgreSQL (dev)
-- H2 (tests)
-- Spring Modulith
-- Swagger/OpenAPI
+## Arquitectura en una mirada
 
-## 2) Arquitectura modular actual
+El backend sigue un enfoque de **monolito modular** con Spring Boot, separando dominios por modulo (`auth`, `agenda`, `medicos`, `pacientes`, `reportes`, `shared`) y conservando bajo acoplamiento mediante contratos internos (`*Api`).
 
-El sistema esta organizado por modulos funcionales y contratos publicos.
+Capas tecnicas principales:
 
-### Modulos
+1. Controller
+2. Service
+3. Repository
+4. Base de datos
 
-- `shared`: seguridad, auditoria, excepciones y utilidades transversales
-- `auth`: autenticacion, registro y usuarios
-- `agenda`: gestion de citas
-- `pacientes`: datos de pacientes y API de consulta/creacion para otros modulos
-- `medicos`: datos de medicos y API de disponibilidad/resumen para otros modulos
-- `reportes`: reportes usando `AgendaApi`
+Tecnologias base: Java 17, Spring Boot, Spring Security (JWT), Spring Data JPA, PostgreSQL (dev), H2 (test), Spring Modulith.
 
-### Contratos de comunicacion entre modulos
+## Modulos del monolito modular
 
-- `auth`: `AuthApi`
-- `agenda`: `AgendaApi`
-- `pacientes`: `PacientesApi` (`pacientes::api`, DTOs en `pacientes::api-dto`)
-- `medicos`: `MedicosApi` (`medicos::api`, DTOs en `medicos::api-dto`)
+El sistema esta organizado por modulos de dominio. Cada modulo expone una frontera publica (`*Api`) y encapsula su logica interna (controllers, services, repositories, entidades).
 
-`agenda` consume internamente `PacientesApi` y `MedicosApi` para RF2 (cita manual), evitando dependencia directa a repositorios de otros modulos.
+| Modulo | Responsabilidad principal | Endpoints principales |
+| --- | --- | --- |
+| `shared` | Capacidades transversales: seguridad JWT, auditoria y excepciones comunes | Sin endpoints directos |
+| `auth` | Login y registro de usuarios | `/auth/login`, `/auth/register/*` |
+| `agenda` | Creacion/consulta de citas y disponibilidad | `/citas/agenda`, `/citas/manual`, `/citas/disponibilidad/*`, `/citas/agenda-dinamica`, `/citas/prioridad`, `/citas/autonomo` |
+| `medicos` | Catalogo de medicos y configuracion de agenda por medico | `/medicos`, `/medicos/{medicoId}/configuracion` |
+| `pacientes` | Consulta y busqueda de pacientes, soporte de autocompletado | `/pacientes`, `/pacientes/{id}`, `/pacientes/buscar` |
+| `reportes` | Reporteria agregada de citas | `/reportes/citas` |
 
-## 3) Estado de requisitos funcionales
+### Comunicacion entre modulos
 
-- RF1 - Listar agenda por medico y fecha: **implementado**
-- RF2 - Crear cita manual: **implementado**
-- RF3 - Agendamiento autonomo: **endpoint definido, implementacion pendiente** (`UnsupportedOperationException`)
+Principio: ningun modulo consume clases internas de otro modulo; la colaboracion se hace por contratos publicos.
 
-## 4) Configuracion de entorno
+| Modulo consumidor | Contrato consumido | Proposito |
+| --- | --- | --- |
+| `agenda` | `MedicosApi` | Validar medico activo y obtener configuracion de atencion |
+| `agenda` | `PacientesApi` | Buscar/crear paciente por documento y enriquecer respuestas |
+| `reportes` | `AgendaApi` | Obtener agregados de citas sin acoplarse a repositorios de agenda |
 
-### Desarrollo (`dev`, por defecto)
+Control arquitectonico:
 
-`application.yml` activa perfil `dev` y usa PostgreSQL local via `application-dev.yml`.
+- Fronteras validadas con `ModularityTest`.
+- Dependencias permitidas declaradas en `package-info.java` por modulo.
+- Contratos publicos activos: `AuthApi`, `AgendaApi`, `MedicosApi`, `PacientesApi`.
 
-- DB: `piedrazul_dev`
-- User: `piedrazul_user`
-- Pass: `piedrazul_pass`
-- Puerto: `5432`
+Documento canonico de modulos y comunicacion:
 
-### Pruebas (`test`)
+- [`02-arquitectura/02-modulos-y-responsabilidades.md`](docs/02-arquitectura/02-modulos-y-responsabilidades.md)
 
-Se usa H2 en memoria (`src/test/resources/application-test.yml`).
+Documento de respaldo: [`02-arquitectura/01-vision-general.md`](docs/02-arquitectura/01-vision-general.md)
 
-## 5) Levantar el proyecto
+## Diagramas C4 (vision rapida)
 
-### 5.1 Levantar infraestructura local
+### C1 - Contexto
 
-```bash
-docker compose up -d
-docker compose ps
-```
+![C4 Contexto](docs/assets/c4-contexto.png)
 
-### 5.2 Ejecutar aplicacion
+### C2 - Contenedores
 
-```bash
-# Windows
-.\mvnw.cmd spring-boot:run
+![C4 Contenedores](docs/assets/c4-contenedores.png)
 
-# Linux/macOS
-./mvnw spring-boot:run
-```
+### C3 - Componentes
 
-### 5.3 Ejecutar tests
+![C4 Componentes](docs/assets/c4-componentes.png)
 
-```bash
-# Suite completa
-./mvnw test
+Documento de respaldo: [`02-arquitectura/03-diagramas-c4.md`](docs/02-arquitectura/03-diagramas-c4.md)
 
-# Solo test de contexto de agenda
-./mvnw -Dtest=CitaServiceTest test
-```
+## Epicas funcionales completas
 
-### 5.4 Swagger
+Fuente funcional de origen: `REQUISITOS-FUNCIONALES.md`.
 
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- OpenAPI: `http://localhost:8080/v3/api-docs`
+| RF | Epica |
+| --- | --- |
+| RF-01 | Yo como agendador de citas necesito listar las citas medicas de un determinado medico/terapista en una fecha determinada para visualizar el listado y la cantidad de citas. |
+| RF-02 | Yo como agendador de citas necesito crear una nueva cita de un paciente que me ha contactado por WhatsApp para hacer efectiva esa cita. |
+| RF-03 | Yo como paciente necesito agendar una cita mediante la web para tener una cita de manera sencilla y rapida sin tener que usar WhatsApp. |
+| RF-04 | Yo como administrador necesito configurar los parametros del sistema para que el agendamiento de citas autonomo funcione acorde a la disponibilidad de los medicos y terapistas de Piedrazul. |
+| RF-05 | Como administrador necesito gestionar usuarios del sistema para controlar acceso y operacion. |
+| RF-06 | Como usuario del sistema necesito autenticarme y operar segun mi rol. |
+| RF-07 | Como administrador necesito gestionar medicos y terapistas para asegurar disponibilidad y calidad operativa. |
+| RF-08 | Como agendador o medico necesito reagendar citas conservando trazabilidad de cambios. |
+| RF-09 | Como usuario operativo autorizado necesito exportar citas para su gestion externa. |
+| RF-10 | Como medico/terapista necesito registrar historia clinica basica asociada a una cita atendida. |
+| RF-11 | Como administrador necesito consultar auditoria del sistema para control y seguimiento. |
+| RF-12 | Como administrador o medico necesito reportes y estadisticas para la toma de decisiones. |
 
-## 6) Seguridad, autenticacion y headers
+Priorizacion actual:
 
-## Acceso publico (sin token)
+- Sprint inicial de alto valor: RF-01, RF-02, RF-03, RF-04.
+- Funcionalidades de continuidad: RF-05 a RF-12.
 
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/register/paciente`
-- `POST /api/v1/auth/register/admin`
-- `/swagger-ui/**`
-- `/v3/api-docs/**`
+Documento de respaldo: [`REQUISITOS-FUNCIONALES.md`](REQUISITOS-FUNCIONALES.md)
 
-## Acceso autenticado
+## Cumplimiento completo de requisitos funcionales (RF)
 
-Todos los demas endpoints requieren:
+### Criterio de lectura
 
-```http
-Authorization: Bearer <jwt>
-Content-Type: application/json
-```
+- `COMPLETO`: existe endpoint y logica principal operativa.
+- `PARCIAL`: existe avance funcional, pero no toda la epica.
+- `PENDIENTE`: endpoint o servicio aun no implementado.
 
-Si falta token o es invalido, la API responde:
+### Estado actual por RF
 
-```json
-{
-  "error": "No autorizado"
-}
-```
+| RF | Estado | Observacion |
+| --- | --- | --- |
+| RF-01 Listar citas por medico y fecha | COMPLETO | `GET /api/v1/citas/agenda` implementado con ocupacion y slots |
+| RF-02 Crear cita manual | COMPLETO | `POST /api/v1/citas/manual` operativo con validaciones de agenda |
+| RF-03 Agendar cita autonoma paciente | PENDIENTE | Endpoint definido; servicio `agendarAutonomo` sin implementar |
+| RF-04 Configuracion parametros del sistema | PARCIAL | Configuracion por medico implementada; ventana global no centralizada |
+| RF-05 Gestion de usuarios | PARCIAL | Flujos de registro existen en `auth`; gestion administrativa integral no centralizada en un modulo dedicado |
+| RF-06 Autenticacion y control de acceso | COMPLETO | JWT + RBAC por rol en controladores |
+| RF-07 Gestion de medicos/terapistas | PARCIAL | Listado y configuracion de agenda por medico implementados |
+| RF-08 Re-agendamiento de citas | PENDIENTE | Sin endpoint dedicado de reagendamiento |
+| RF-09 Exportacion de citas | PENDIENTE | Sin endpoint CSV implementado |
+| RF-10 Historia clinica basica | PENDIENTE | Sin endpoints funcionales expuestos |
+| RF-11 Auditoria del sistema | PARCIAL | Existe `AuditService` y eventos registrados en operaciones clave |
+| RF-12 Reportes y estadisticas | PARCIAL | Endpoint `/api/v1/reportes/citas` operativo; cobertura analitica aun limitada |
 
-## Roles usados actualmente en codigo
+Comentario ejecutivo:
 
-- `PACIENTE`
-- `AGENDADOR`
-- `MEDICO`
-- `MEDICO_TERAPISTA`
-- `ADMIN`
-- `ADMINISTRADOR`
+El sistema ya cubre el nucleo de operacion asistida (RF-01 y RF-02) y la base de seguridad (RF-06). El mayor gap funcional para cierre de sprint de producto es RF-03 (autogestion paciente) y funcionalidades operativas complementarias (RF-08, RF-09, RF-10).
 
-Nota: hay coexistencia de nombres de rol en distintos controladores/documentacion historica; validar el rol exacto segun endpoint.
-
-## 7) Endpoints implementados
+## Endpoints implementados (catalogo central)
 
 Base URL: `http://localhost:8080/api/v1`
 
-### 7.1 Auth
-
-## `POST /auth/login`
-
-- Auth requerida: No
-- Body:
-
-```json
-{
-  "username": "maria.gonzalez",
-  "password": "Password123"
-}
-```
-
-- Response 200:
-
-```json
-{
-  "token": "eyJ...",
-  "userId": 42,
-  "username": "maria.gonzalez",
-  "rol": "AGENDADOR",
-  "expiresIn": 86400
-}
-```
-
-## `POST /auth/register/paciente`
-
-- Auth requerida: No
-- Body:
-
-```json
-{
-  "username": "paciente.demo",
-  "password": "Password123",
-  "documento": "1234567890",
-  "nombres": "Juan Carlos",
-  "apellidos": "Perez Gomez",
-  "celular": "3001234567",
-  "genero": "MASCULINO",
-  "fechaNacimiento": "1985-03-15",
-  "correo": "juan@email.com"
-}
-```
-
-- Response 201:
-
-```json
-{
-  "token": "eyJ...",
-  "userId": 100,
-  "username": "paciente.demo",
-  "rol": "PACIENTE",
-  "expiresIn": 86400
-}
-```
-
-## `POST /auth/register/admin`
-
-- Auth requerida: No (estado actual de seguridad)
-- Body:
-
-```json
-{
-  "username": "admin.demo",
-  "password": "Password123"
-}
-```
-
-- Response 201:
-
-```json
-{
-  "token": "eyJ...",
-  "userId": 1,
-  "username": "admin.demo",
-  "rol": "ADMIN",
-  "expiresIn": 86400
-}
-```
-
-## `POST /auth/register/medico`
-
-- Auth requerida: Si
-- Rol requerido: `ADMIN`
-- Body:
-
-```json
-{
-  "username": "medico.demo",
-  "password": "Password123",
-  "nombres": "Clara Ines",
-  "apellidos": "Cordoba",
-  "especialidad": "TERAPIA_NEURAL",
-  "tipo": "MEDICO"
-}
-```
-
-- Response 201:
-
-```json
-{
-  "token": "eyJ...",
-  "userId": 200,
-  "username": "medico.demo",
-  "rol": "MEDICO",
-  "expiresIn": 86400
-}
-```
-
-### 7.2 Agenda
-
-## `POST /citas/manual` (RF2)
-
-- Auth requerida: Si
-- Roles requeridos: `AGENDADOR` o `MEDICO_TERAPISTA`
-- Body:
-
-```json
-{
-  "documento": "1234567890",
-  "nombres": "Juan Carlos",
-  "apellidos": "Perez Gomez",
-  "celular": "3001234567",
-  "genero": "MASCULINO",
-  "fechaNacimiento": "1985-03-15",
-  "correo": "juan@email.com",
-  "medicoId": 1,
-  "hora": "08:00:00",
-  "fecha": "2026-03-20",
-  "observaciones": "Dolor lumbar cronico"
-}
-```
-
-- Response 201:
-
-```json
-{
-  "id": 101,
-  "pacienteNombre": "Juan Carlos Perez Gomez",
-  "pacienteDocumento": "1234567890",
-  "medicoNombre": "Clara Ines Cordoba",
-  "especialidad": "TERAPIA_NEURAL",
-  "fecha": "2026-03-20",
-  "hora": "08:00:00",
-  "estado": "PROGRAMADA",
-  "observaciones": "Dolor lumbar cronico"
-}
-```
-
-- Validaciones de negocio implementadas:
-  - fecha futura
-  - medico existente y activo
-  - horario disponible segun agenda
-  - parseo de hora (`HH:mm:ss`)
-  - paciente por documento: reutiliza o crea
-
-## `GET /citas/agenda` (RF1)
-
-- Auth requerida: Si
-- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `ADMIN`
-- Query params:
-
-```json
-{
-  "medicoId": 1,
-  "fecha": "2026-03-20"
-}
-```
-
-- Response 200:
-
-```json
-{
-  "medicoId": 1,
-  "medicoNombre": "Clara Ines Cordoba",
-  "especialidad": "TERAPIA_NEURAL",
-  "fecha": "2026-03-20",
-  "citas": [
-    {
-      "id": 101,
-      "pacienteNombre": "Ana Perez",
-      "pacienteDocumento": "122321",
-      "medicoNombre": "Clara Ines Cordoba",
-      "especialidad": "TERAPIA_NEURAL",
-      "fecha": "2026-03-20",
-      "hora": "07:00:00",
-      "estado": "PROGRAMADA",
-      "observaciones": "Control"
-    }
-  ],
-  "horariosDisponibles": ["07:15:00", "07:30:00"],
-  "totalSlots": 20,
-  "slotsOcupados": 1,
-  "porcentajeOcupacion": 5.0
-}
-```
-
-- Reglas implementadas en servicio:
-  - valida medico existente y activo (`MedicosApi`)
-  - valida configuracion horaria activa (`MedicosApi`)
-  - filtra citas con estado `CANCELADA` para calculos de ocupacion
-  - enriquece respuesta con datos de paciente (`PacientesApi`)
-  - calcula `totalSlots` segun `horaInicio`, `horaFin`, `intervaloMinutos` y `diasAtencion` del medico
-  - `porcentajeOcupacion = (slotsOcupados / totalSlots) * 100` (si `totalSlots` es 0, retorna 0)
-
-## `POST /citas/autonomo` (RF3)
-
-- Auth requerida: Si
-- Rol requerido: `PACIENTE`
-- Body:
-
-```json
-{
-  "medicoId": 1,
-  "fecha": "2026-03-20",
-  "hora": "09:00:00",
-  "observaciones": "Control"
-}
-```
-
-- Estado actual: endpoint expuesto, **pendiente de implementacion en servicio**.
-
-## `GET /citas/agenda-dinamica`
-
-- Auth requerida: Si
-- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN`
-- Query params:
-
-```json
-{
-  "medicoId": 1,
-  "fecha": "2026-06-10"
-}
-```
-
-- Response 200 (estructura para UI declarativa):
-
-```json
-{
-  "fecha": "2026-06-10",
-  "medico": "Dra. Maria Cordoba",
-  "primerSlotDisponible": "2026-06-10T09:25:00",
-  "bloques": [
-    {
-      "rango": "9:00 AM - 10:00 AM",
-      "estaExpandido": true,
-      "slots": [
-        {
-          "hora": "9:00 AM",
-          "estado": "OCUPADO",
-          "citaId": 120,
-          "pacienteDocumento": "1234567890",
-          "pacienteNombres": "Juan Jose",
-          "pacienteApellidos": "Perez",
-          "pacienteCelular": "3001234567",
-          "permiteAbrirPrioridadPosterior": true
-        }
-      ]
-    }
-  ]
-}
-```
-
-- Regla clave: `permiteAbrirPrioridadPosterior` solo se marca en el inicio de una cita ocupada donde el backend valida flexibilidad real para insertar 5 minutos.
-
-## `POST /citas/prioridad`
-
-- Auth requerida: Si
-- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN`
-- Body:
-
-```json
-{
-  "documento": "1234567890",
-  "nombres": "Paciente",
-  "apellidos": "Prioritario",
-  "celular": "3001234567",
-  "genero": "MASCULINO",
-  "fechaNacimiento": "1990-01-01",
-  "correo": "prioridad@email.com",
-  "medicoId": 1,
-  "fecha": "2026-06-10",
-  "horaReferencia": "09:00:00",
-  "observaciones": "Sobrecupo autorizado"
-}
-```
-
-- Resultado: crea una cita de tipo `PRIORIDAD` de 5 minutos inmediatamente posterior a la cita de referencia y recorta la cita vecina al minimo permitido cuando aplica.
-
-### 7.3 Pacientes
-
-## `GET /pacientes`
-
-- Auth requerida: Si
-- Roles requeridos: `ADMIN` o `MEDICO`
-- Response 200:
-
-```json
-[
-  {
-    "id": 1,
-    "documento": "1234567890",
-    "nombres": "Juan Carlos",
-    "apellidos": "Perez Gomez",
-    "celular": "3001234567",
-    "correo": "juan@email.com",
-    "fechaNacimiento": "1985-03-15",
-    "genero": "MASCULINO"
-  }
-]
-```
-
-## `GET /pacientes/{id}`
-
-- Auth requerida: Si
-- Roles requeridos: `ADMIN` o `MEDICO` o `PACIENTE`
-- Response 200:
-
-```json
-{
-  "id": 1,
-  "documento": "1234567890",
-  "nombres": "Juan Carlos",
-  "apellidos": "Perez Gomez",
-  "celular": "3001234567",
-  "correo": "juan@email.com",
-  "fechaNacimiento": "1985-03-15",
-  "genero": "MASCULINO"
-}
-```
-
-## `GET /pacientes/buscar` (search-as-you-type)
-
-- Auth requerida: Si
-- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN`
-- Query params:
-
-```json
-{
-  "documento": "123",
-  "limit": 5
-}
-```
-
-- Response 200:
-
-```json
-[
-  {
-    "id": 10,
-    "documento": "1234567890",
-    "nombresCompletos": "Juan Carlos Perez Gomez"
-  },
-  {
-    "id": 18,
-    "documento": "1234987654",
-    "nombresCompletos": "Juana Perez Soto"
-  }
-]
-```
-
-- Reglas implementadas:
-  - búsqueda por prefijo (`documento` empieza con el valor ingresado)
-  - mínimo 2 caracteres para devolver sugerencias
-  - `limit` por defecto `5`, máximo `10`
-  - respuesta liviana para autocompletado (sin datos clínicos)
-
-### 7.4 Medicos
-
-## `GET /medicos`
-
-- Auth requerida: Si
-- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `PACIENTE`, `ADMIN`
-- Query params opcionales:
-
-```json
-{
-  "especialidad": "TERAPIA_NEURAL"
-}
-```
-
-- Response 200:
-
-```json
-[
-  {
-    "id": 1,
-    "nombresCompletos": "Clara Ines Cordoba",
-    "especialidad": "TERAPIA_NEURAL",
-    "tipo": "MEDICO",
-    "activo": true,
-    "intervaloMinutos": 15
-  }
-]
-```
-
-## `GET /medicos/{medicoId}/configuracion`
-
-- Auth requerida: Si
-- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `PACIENTE`, `ADMIN`
-- Response 200:
-
-```json
-{
-  "medicoId": 1,
-  "medicoNombre": "Clara Ines Cordoba",
-  "especialidad": "TERAPIA_NEURAL",
-  "activo": true,
-  "diasAtencion": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
-  "horaInicio": "07:00:00",
-  "horaFin": "12:00:00",
-  "intervaloMinutos": 15,
-  "capacidadDiaria": 20
-}
-```
-
-## `PUT /medicos/{medicoId}/configuracion`
-
-- Auth requerida: Si
-- Rol requerido: `ADMIN`
-- Body:
-
-```json
-{
-  "diasAtencion": ["MONDAY", "TUESDAY", "THURSDAY", "FRIDAY"],
-  "horaInicio": "07:00:00",
-  "horaFin": "12:00:00",
-  "intervaloMinutos": 15
-}
-```
-
-- Response 200:
-
-```json
-{
-  "medicoId": 1,
-  "medicoNombre": "Clara Ines Cordoba",
-  "especialidad": "TERAPIA_NEURAL",
-  "activo": true,
-  "diasAtencion": ["MONDAY", "TUESDAY", "THURSDAY", "FRIDAY"],
-  "horaInicio": "07:00:00",
-  "horaFin": "12:00:00",
-  "intervaloMinutos": 15,
-  "capacidadDiaria": 20
-}
-```
-
-- Validaciones de negocio implementadas:
-  - `horaFin` debe ser mayor a `horaInicio`
-  - jornada entre 2 y 8 horas
-  - `intervaloMinutos` en: `5, 10, 15, 20, 30, 45, 60`
-  - `diasAtencion` no puede ser vacio
-
-### 7.5 Reportes
-
-## `GET /reportes/citas`
-
-- Auth requerida: Si
-- Roles requeridos: `AGENDADOR` o `ADMINISTRADOR`
-- Query params:
-
-```json
-{
-  "desde": "2026-03-01",
-  "hasta": "2026-03-31"
-}
-```
-
-- Response 200:
-
-```json
-{
-  "desde": "2026-03-01",
-  "hasta": "2026-03-31",
-  "totalCitas": 25,
-  "citasAtendidas": 10,
-  "citasCanceladas": 3,
-  "citasProgramadas": 12,
-  "porcentajeOcupacion": 0.0
-}
-```
-
-## 8) Endpoints de requisitos definidos pero no completos
-
-- RF3: `POST /api/v1/citas/autonomo` (servicio pendiente)
-
-## 9) Flujo recomendado de uso API
-
-1. Crear cuenta admin (`/auth/register/admin`) o usar un admin existente.
-2. Login (`/auth/login`) y guardar JWT.
-3. Registrar medico (`/auth/register/medico`) con token admin.
-4. Crear cita manual (`/citas/manual`) con rol `AGENDADOR` o `MEDICO_TERAPISTA`.
-5. Consultar pacientes y reportes segun permisos.
-
-## 10) Notas importantes del estado actual
-
-- El modulo `medicos` expone endpoints REST para listado y configuracion de agenda por medico (`/api/v1/medicos`).
-- `PacientesApi` y `MedicosApi` ya se usan en `agenda` para RF1 y RF2.
-- Cada medico se crea con configuracion base (07:00-12:00, intervalo 15 min, lunes-viernes) y puede ser ajustado por `ADMIN` en `PUT /api/v1/medicos/{medicoId}/configuracion`.
-- Si ejecutas tests sin perfil `test`, el contexto puede intentar usar PostgreSQL dev.
-
-## 11) Comandos utiles de operacion
-
-```bash
-# Compilar
-./mvnw -DskipTests compile
-
-# Ejecutar app
-./mvnw spring-boot:run
-
-# Test de contexto de agenda
-./mvnw -Dtest=CitaServiceTest test
-
-# Detener infraestructura
-docker compose down
-```
+### Convenciones
 
+- Todos los endpoints (excepto publicos) requieren `Authorization: Bearer <jwt>`.
+- El control de roles se aplica con `@PreAuthorize` en controladores.
+
+### Publicos (sin token)
+
+| Metodo | Endpoint | Estado |
+| --- | --- | --- |
+| POST | `/auth/login` | Implementado |
+| POST | `/auth/register/paciente` | Implementado |
+| POST | `/auth/register/admin` | Implementado |
+
+### Auth
+
+| Metodo | Endpoint | Roles | Estado |
+| --- | --- | --- | --- |
+| POST | `/auth/register/medico` | `ADMIN` | Implementado |
+
+### Agenda
+
+| Metodo | Endpoint | Roles | Estado |
+| --- | --- | --- | --- |
+| GET | `/citas/agenda` | `AGENDADOR`, `MEDICO_TERAPISTA`, `ADMIN` | Implementado |
+| POST | `/citas/manual` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO` | Implementado |
+| POST | `/citas/autonomo` | `PACIENTE` | Definido (servicio pendiente) |
+| GET | `/citas/disponibilidad/primera` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `PACIENTE`, `ADMIN` | Implementado |
+| GET | `/citas/disponibilidad/primera/global` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `PACIENTE`, `ADMIN` | Implementado |
+| GET | `/citas/agenda-dinamica` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN` | Implementado |
+| POST | `/citas/prioridad` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN` | Implementado |
+
+### Pacientes
+
+| Metodo | Endpoint | Roles | Estado |
+| --- | --- | --- | --- |
+| GET | `/pacientes` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN` | Implementado |
+| GET | `/pacientes/{id}` | `ADMIN`, `MEDICO`, `PACIENTE` | Implementado |
+| GET | `/pacientes/buscar` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN` | Implementado |
+
+### Medicos
+
+| Metodo | Endpoint | Roles | Estado |
+| --- | --- | --- | --- |
+| GET | `/medicos` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `PACIENTE`, `ADMIN` | Implementado |
+| GET | `/medicos/{medicoId}/configuracion` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `PACIENTE`, `ADMIN` | Implementado |
+| PUT | `/medicos/{medicoId}/configuracion` | `ADMIN` | Implementado |
+
+### Reportes
+
+| Metodo | Endpoint | Roles | Estado |
+| --- | --- | --- | --- |
+| GET | `/reportes/citas` | `AGENDADOR`, `ADMIN` | Implementado |
+
+Nota:
+
+Aunque existe endpoint expuesto para `POST /citas/autonomo`, el metodo de servicio asociado aun se encuentra en estado pendiente de implementacion completa.
+
+Documento de respaldo y detalle de contratos: [`04-api/01-endpoints-implementados.md`](docs/04-api/01-endpoints-implementados.md)
+
+## Modelo de datos (resumen)
+
+Entidades clave del negocio:
+
+- `Usuario`
+- `Paciente`
+- `Medico`
+- `Cita`
+- `HistorialCambiosCita`
+
+Relaciones y reglas clave:
+
+- `agenda` referencia a `Paciente` y `Medico` por ID via APIs publicas.
+- Se evita doble cita para mismo medico/fecha/hora.
+- Citas `CANCELADA` no se consideran para disponibilidad.
+- Se respetan franja e intervalo de atencion por medico.
+
+Documento de respaldo: [`05-datos/01-modelo-datos-y-diccionario.md`](docs/05-datos/01-modelo-datos-y-diccionario.md)
+
+## Seguridad y calidad (clave)
+
+- Autenticacion stateless con JWT.
+- RBAC por roles con `@PreAuthorize`.
+- Hash de credenciales con BCrypt.
+- Auditoria operativa en eventos criticos.
+
+Riesgo documental/tecnico a resolver: coexistencia de `ADMIN` y `ADMINISTRADOR`; se recomienda estandarizar.
+
+Documento de respaldo: [`03-requisitos/02-rnf-seguridad.md`](docs/03-requisitos/02-rnf-seguridad.md)
+
+## Navegacion completa por seccion
+
+### 1. Contexto
+
+- [`01-contexto.md`](docs/01-contexto.md)
+
+### 2. Arquitectura
+
+- [`02-arquitectura/01-vision-general.md`](docs/02-arquitectura/01-vision-general.md)
+- [`02-arquitectura/02-modulos-y-responsabilidades.md`](docs/02-arquitectura/02-modulos-y-responsabilidades.md)
+- [`02-arquitectura/03-diagramas-c4.md`](docs/02-arquitectura/03-diagramas-c4.md)
+
+### 3. Requisitos
+
+- [`03-requisitos/REQUISITOS-FUNCIONALES.md`](./REQUISITOS-FUNCIONALES.md)
+- [`03-requisitos/02-rnf-seguridad.md`](docs/03-requisitos/02-rnf-seguridad.md)
+
+### 4. API y uso
+
+- [`04-api/01-endpoints-implementados.md`](docs/04-api/01-endpoints-implementados.md)
+- [`04-api/02-flujos-por-rol.md`](docs/04-api/02-flujos-por-rol.md)
+
+### 5. Datos
+
+- [`05-datos/01-modelo-datos-y-diccionario.md`](docs/05-datos/01-modelo-datos-y-diccionario.md)
