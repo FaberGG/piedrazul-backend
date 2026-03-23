@@ -444,22 +444,6 @@ public class CitaServiceImpl implements CitaService {
 
     /**
      * {@inheritDoc}
-     *
-     * FLUJO MODULAR - PASOS A IMPLEMENTAR:
-     * 1. Identificación del Paciente:
-     * - Obtener el 'usuarioId' del SecurityContextHolder.
-     * - Llamar a pacientesApi.buscarIdPorUsuarioId(usuarioId).
-     * -> Si no existe: throw EntityNotFoundException("El usuario no tiene un perfil de paciente asociado").
-     * 2. Validación de Reglas de Negocio (Internas de Agenda):
-     * - Consultar citaRepository.countByPacienteIdAndEstadoAndFechaPositiva(...)
-     * -> Si >= 3: throw BusinessRuleException("Límite de 3 citas futuras alcanzado").
-     * 3. Validación de Disponibilidad (Comunicación con Médicos):
-     * - Llamar a medicosApi.verificarHabilitacionParaCita(request.medicoId, request.fecha, request.hora).
-     * - Esta llamada interna valida: estado ACTIVO del médico, franja horaria y feriados.
-     * -> Si retorna false: throw BusinessRuleException("El médico no está disponible en el horario seleccionado").
-     * 4. Validación de Cruce de Horarios (Interna de Agenda):
-     * - verificarDisponibilidadInterna(request.medicoId, request.fecha, request.hora).
-     * - Comprobar que no exista otra Cita en ese slot exacto para ese medicoId.
      * 5. Persistencia (Desacoplada):
      * - Crear entidad Cita usando solo pacienteId (Long) y medicoId (Long).
      * - Usar @Lock(PESSIMISTIC_WRITE) en la consulta de validación previa para evitar Race Conditions.
@@ -469,9 +453,53 @@ public class CitaServiceImpl implements CitaService {
      * - Los módulos de Auditoría y Notificaciones reaccionarán de forma independiente.
      * 7. Retornar CitaResponse (Mapeado desde la entidad).
      */
+
     @Override
     public CitaResponse agendarAutonomo(AgendarAutonomoRequest request) {
-        throw new UnsupportedOperationException("TODO RF3: implementar agendarAutonomo");
+
+        Long usuarioId = obtenerUsuarioIdAutenticado();
+        PacienteResumenDTO pacienteResumenDTO = pacientesApi.buscarPorUsuarioId(usuarioId);
+
+        long citasFuturas = citaRepository.countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(pacienteResumenDTO.getId(), "CANCELADA", LocalDate.now());
+        if (citasFuturas >= 3) {
+            throw new BusinessRuleException("Límite de 3 citas alcanzado");
+        }
+
+        MedicoResumenDTO medicoResumenDTO = medicosApi.obtenerResumenMedico(request.getMedicoId());
+        if (medicoResumenDTO == null) {
+            throw new ResourceNotFoundException("Medico", request.getMedicoId());
+        }
+        if (!medicoResumenDTO.isActivo()) {
+            throw new BusinessRuleException("El medico no esta activo");
+        }
+
+        boolean disponibilidad = disponibilidadService.estaDisponible(medicoResumenDTO.getId(), request.getFecha(), request.getHora());
+        if(!disponibilidad) {
+            throw new BusinessRuleException("Horario no disponible");
+        }
+
+        Cita cita = Cita.builder()
+                .pacienteId(pacienteResumenDTO.getId())
+                .medicoId(request.getMedicoId())
+                .fecha(request.getFecha())
+                .hora(request.getHora())
+                .estado("PROGRAMADA")
+                .observaciones(request.getObservaciones())
+                .creadoPor(usuarioId)
+                .build();
+
+        Cita guardada = citaRepository.save(cita);
+
+        auditService.registrar(
+                guardada.getCreadoPor(),
+                "CREAR",
+                "CITA",
+                guardada.getId(),
+                "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}",
+                "N/A"
+        );
+
+        return mapToResponse(guardada, pacienteResumenDTO, medicoResumenDTO);
     }
 
     private LocalTime parseHora(String hora) {
@@ -749,4 +777,3 @@ public class CitaServiceImpl implements CitaService {
 
     private record SlotPanel(LocalTime hora, Cita cita) {}
 }
-

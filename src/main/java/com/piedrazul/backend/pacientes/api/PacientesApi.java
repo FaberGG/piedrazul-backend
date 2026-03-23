@@ -11,5 +11,7 @@ public interface PacientesApi {
     PacienteResumenDTO obtenerOCrearPorDocumento(RegistroPacienteDTO request);
 
     PacienteResumenDTO obtenerResumenPorId(Long pacienteId);
+
+    PacienteResumenDTO buscarPorUsuarioID(Long usuarioId);
 }
 
