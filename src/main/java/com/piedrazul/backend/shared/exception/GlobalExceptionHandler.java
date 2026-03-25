@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.piedrazul.backend.shared.dto.ErrorResponse;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -20,20 +20,47 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
-        // TODO: construir ErrorResponse con status 404
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), null);
     }
 
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<ErrorResponse> handleBusinessRule(BusinessRuleException ex) {
-        // TODO: construir ErrorResponse con status 422
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
-        // TODO: construir ErrorResponse con status 400 y errores de campo
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        Map<String, String> erroresCampo = new LinkedHashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+                erroresCampo.putIfAbsent(error.getField(), error.getDefaultMessage()));
+
+        String mensaje = erroresCampo.isEmpty()
+                ? "Solicitud invalida"
+                : "Solicitud invalida: " + erroresCampo.values().iterator().next();
+
+        return buildResponse(HttpStatus.BAD_REQUEST, mensaje, erroresCampo);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno del servidor", null);
+    }
+
+    private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status,
+                                                        String message,
+                                                        Map<String, String> errors) {
+        String safeMessage = (message == null || message.isBlank())
+                ? status.getReasonPhrase()
+                : message;
+
+        ErrorResponse body = ErrorResponse.builder()
+                .status(status.value())
+                .message(safeMessage)
+                .timestamp(LocalDateTime.now())
+                .errors(errors)
+                .build();
+
+        return ResponseEntity.status(status).body(body);
     }
 }
 

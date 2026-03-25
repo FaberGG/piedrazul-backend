@@ -543,9 +543,9 @@ public class CitaServiceImpl implements CitaService {
     }
 
     private LocalDate normalizarFechaInicio(LocalDate desde) {
-        LocalDate hoy = LocalDate.now();
-        if (desde == null || desde.isBefore(hoy)) {
-            return hoy;
+        LocalDate manana = LocalDate.now().plusDays(1);
+        if (desde == null || desde.isBefore(manana)) {
+            return manana;
         }
         return desde;
     }
@@ -560,7 +560,6 @@ public class CitaServiceImpl implements CitaService {
             Optional<LocalTime> primeraHoraDisponible = disponibilidadService
                     .calcularHorariosDisponibles(medico.getId(), fecha)
                     .stream()
-                    .filter(hora -> !fecha.equals(LocalDate.now()) || hora.isAfter(LocalTime.now()))
                     .sorted()
                     .findFirst();
 
@@ -643,8 +642,10 @@ public class CitaServiceImpl implements CitaService {
 
         for (Cita cita : citasDia) {
             if (cita.getHora().isAfter(cursor)) {
-                // Si hay hueco, se expone solo el primer minuto accionable de ese tramo.
-                slots.add(new SlotPanel(cursor, null));
+                LocalTime inicioLibre = calcularInicioLibreAccionable(cursor, cita.getHora(), horario);
+                if (inicioLibre != null) {
+                    slots.add(new SlotPanel(inicioLibre, null));
+                }
             }
 
             slots.add(new SlotPanel(cita.getHora(), cita));
@@ -656,10 +657,50 @@ public class CitaServiceImpl implements CitaService {
         }
 
         if (cursor.isBefore(horario.getHoraFin())) {
-            slots.add(new SlotPanel(cursor, null));
+            LocalTime inicioLibre = calcularInicioLibreAccionable(cursor, horario.getHoraFin(), horario);
+            if (inicioLibre != null) {
+                slots.add(new SlotPanel(inicioLibre, null));
+            }
         }
 
         return slots;
+    }
+
+    private LocalTime calcularInicioLibreAccionable(LocalTime inicioHueco, LocalTime limiteHueco, HorarioAtencionDTO horario) {
+        if (!inicioHueco.isBefore(limiteHueco)) {
+            return null;
+        }
+
+        LocalTime inicioAlineado = alinearAlIntervalo(inicioHueco, horario);
+        if (inicioAlineado == null || !inicioAlineado.isBefore(limiteHueco)) {
+            return null;
+        }
+
+        int duracionEstandar = Math.max(1, horario.getIntervaloMinutos());
+        LocalTime finRequerido = inicioAlineado.plusMinutes(duracionEstandar);
+        if (finRequerido.isAfter(limiteHueco) || finRequerido.isAfter(horario.getHoraFin())) {
+            return null;
+        }
+
+        return inicioAlineado;
+    }
+
+    private LocalTime alinearAlIntervalo(LocalTime hora, HorarioAtencionDTO horario) {
+        if (hora == null || horario.getHoraInicio() == null || horario.getIntervaloMinutos() <= 0) {
+            return null;
+        }
+
+        if (hora.isBefore(horario.getHoraInicio())) {
+            return horario.getHoraInicio();
+        }
+
+        long minutosDesdeInicio = java.time.Duration.between(horario.getHoraInicio(), hora).toMinutes();
+        long residuo = minutosDesdeInicio % horario.getIntervaloMinutos();
+        if (residuo == 0) {
+            return hora;
+        }
+
+        return hora.plusMinutes(horario.getIntervaloMinutos() - residuo);
     }
 
     private List<AgendaDinamicaBloqueResponse> construirBloquesAgenda(

@@ -19,6 +19,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -100,6 +103,79 @@ class CitaServiceImplPrimerHorarioTest {
         assertEquals(desde, response.getFecha());
         assertEquals(LocalTime.of(11, 0), response.getHora());
         assertEquals("Medico Dos", response.getMedicoNombre());
+    }
+
+    @Test
+    void obtenerPrimerHorarioMedico_conDesdeNulo_empiezaDesdeManana() {
+        Long medicoId = 10L;
+        LocalDate manana = LocalDate.now().plusDays(1);
+
+        MedicoResumenDTO medico = MedicoResumenDTO.builder()
+                .id(medicoId)
+                .nombresCompletos("Medico Uno")
+                .especialidad("FISIOTERAPIA")
+                .activo(true)
+                .build();
+
+        when(medicosApi.obtenerResumenMedico(medicoId)).thenReturn(medico);
+        when(medicosApi.obtenerHorarioAtencion(medicoId))
+                .thenReturn(HorarioAtencionDTO.builder().intervaloMinutos(20).build());
+        when(disponibilidadService.calcularHorariosDisponibles(medicoId, manana))
+                .thenReturn(List.of(LocalTime.of(10, 0)));
+
+        PrimerHorarioDisponibleResponse response = citaService.obtenerPrimerHorarioDisponibleMedico(medicoId, null);
+
+        assertEquals(manana, response.getFecha());
+        assertEquals(LocalTime.of(10, 0), response.getHora());
+        verify(disponibilidadService, never()).calcularHorariosDisponibles(eq(medicoId), eq(LocalDate.now()));
+    }
+
+    @Test
+    void obtenerPrimerHorarioGlobal_conDesdeHoy_empiezaDesdeManana() {
+        LocalDate hoy = LocalDate.now();
+        LocalDate manana = hoy.plusDays(1);
+
+        MedicoResumenDTO medico = MedicoResumenDTO.builder()
+                .id(1L)
+                .nombresCompletos("Medico Uno")
+                .especialidad("QUIROPRAXIA")
+                .activo(true)
+                .build();
+
+        when(medicosApi.listarMedicosActivos()).thenReturn(List.of(medico));
+        when(medicosApi.obtenerHorarioAtencion(1L))
+                .thenReturn(HorarioAtencionDTO.builder().intervaloMinutos(15).build());
+        when(disponibilidadService.calcularHorariosDisponibles(1L, manana))
+                .thenReturn(List.of(LocalTime.of(9, 0)));
+
+        PrimerHorarioDisponibleResponse response = citaService.obtenerPrimerHorarioDisponibleGlobal(hoy);
+
+        assertEquals(manana, response.getFecha());
+        verify(disponibilidadService, never()).calcularHorariosDisponibles(eq(1L), eq(hoy));
+    }
+
+    @Test
+    void obtenerPrimerHorarioGlobal_conDesdePasado_empiezaDesdeManana() {
+        LocalDate pasado = LocalDate.now().minusDays(3);
+        LocalDate manana = LocalDate.now().plusDays(1);
+
+        MedicoResumenDTO medico = MedicoResumenDTO.builder()
+                .id(1L)
+                .nombresCompletos("Medico Uno")
+                .especialidad("QUIROPRAXIA")
+                .activo(true)
+                .build();
+
+        when(medicosApi.listarMedicosActivos()).thenReturn(List.of(medico));
+        when(medicosApi.obtenerHorarioAtencion(1L))
+                .thenReturn(HorarioAtencionDTO.builder().intervaloMinutos(15).build());
+        when(disponibilidadService.calcularHorariosDisponibles(1L, manana))
+                .thenReturn(List.of(LocalTime.of(9, 30)));
+
+        PrimerHorarioDisponibleResponse response = citaService.obtenerPrimerHorarioDisponibleGlobal(pasado);
+
+        assertEquals(manana, response.getFecha());
+        verify(disponibilidadService, never()).calcularHorariosDisponibles(eq(1L), eq(LocalDate.now()));
     }
 }
 

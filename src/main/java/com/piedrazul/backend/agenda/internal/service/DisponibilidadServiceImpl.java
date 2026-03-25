@@ -1,5 +1,6 @@
 package com.piedrazul.backend.agenda.internal.service;
 
+import com.piedrazul.backend.agenda.internal.domain.Cita;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.medicos.api.MedicosApi; // <-- IMPORTANTE: Dependemos de la API, no del Repo
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
@@ -10,9 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -25,42 +25,29 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
 
     @Override
     public List<LocalTime> calcularHorariosDisponibles(Long medicoId, LocalDate fecha) {
-        // 1. Obtener configuración desde el módulo de Médicos (Caja Negra)
         HorarioAtencionDTO config = medicosApi.obtenerHorarioAtencion(medicoId);
-
-        if (config == null || !config.isActivo() || !config.getDiasAtencion().contains(fecha.getDayOfWeek())) {
+        if (!esConfiguracionValidaParaFecha(config, fecha)) {
             return List.of();
         }
 
-        // 2. Generar todos los slots teóricos
+        int duracionEstandar = config.getIntervaloMinutos();
         List<LocalTime> todosLosSlots = generarSlotsTeoricos(config);
+        List<Cita> citasActivas = obtenerCitasActivasOrdenadas(medicoId, fecha);
 
-        // 3. Obtener horas ocupadas desde nuestro propio repositorio de Agenda
-        Set<LocalTime> horasOcupadas = citaRepository.findByMedicoIdAndFecha(medicoId, fecha)
-                .stream()
-                .filter(cita -> !"CANCELADA".equals(cita.getEstado()))
-                .map(cita -> cita.getHora())
-                .collect(Collectors.toSet());
-
-        // 4. Filtrar: Slots teóricos - Horas ocupadas
         return todosLosSlots.stream()
-                .filter(slot -> !horasOcupadas.contains(slot))
+                .filter(slot -> cabeCitaEnSlot(slot, config, citasActivas, duracionEstandar))
                 .toList();
     }
 
     @Override
     public boolean estaDisponible(Long medicoId, LocalDate fecha, LocalTime hora) {
-        // Validación optimizada: Primero ver si el slot está físicamente libre en nuestra DB
-        boolean slotOcupadoEnAgenda = citaRepository.existsByMedicoIdAndFechaAndHoraAndEstadoNot(
-                medicoId, fecha, hora, "CANCELADA");
-
-        if (slotOcupadoEnAgenda) {
+        HorarioAtencionDTO config = medicosApi.obtenerHorarioAtencion(medicoId);
+        if (!esHoraValidaSegunConfig(hora, config, fecha)) {
             return false;
         }
 
-        // Segundo: Validar que la hora coincida con la configuración del médico
-        HorarioAtencionDTO config = medicosApi.obtenerHorarioAtencion(medicoId);
-        return esHoraValidaSegunConfig(hora, config, fecha);
+        List<Cita> citasActivas = obtenerCitasActivasOrdenadas(medicoId, fecha);
+        return cabeCitaEnSlot(hora, config, citasActivas, config.getIntervaloMinutos());
     }
 
     private List<LocalTime> generarSlotsTeoricos(HorarioAtencionDTO config) {
@@ -74,14 +61,56 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
     }
 
     private boolean esHoraValidaSegunConfig(LocalTime hora, HorarioAtencionDTO config, LocalDate fecha) {
-        if (config == null || !config.isActivo() || !config.getDiasAtencion().contains(fecha.getDayOfWeek())) {
+        if (!esConfiguracionValidaParaFecha(config, fecha)) {
             return false;
         }
         if (hora.isBefore(config.getHoraInicio()) || !hora.isBefore(config.getHoraFin())) {
             return false;
         }
-        // Validar que la hora caiga exactamente en un intervalo (múltiplo)
+
         long minutosDesdeInicio = java.time.Duration.between(config.getHoraInicio(), hora).toMinutes();
         return minutosDesdeInicio % config.getIntervaloMinutos() == 0;
+    }
+
+    private boolean esConfiguracionValidaParaFecha(HorarioAtencionDTO config, LocalDate fecha) {
+        return config != null
+                && config.isActivo()
+                && config.getHoraInicio() != null
+                && config.getHoraFin() != null
+                && config.getIntervaloMinutos() > 0
+                && config.getDiasAtencion() != null
+                && config.getDiasAtencion().contains(fecha.getDayOfWeek())
+                && config.getHoraInicio().isBefore(config.getHoraFin());
+    }
+
+    private List<Cita> obtenerCitasActivasOrdenadas(Long medicoId, LocalDate fecha) {
+        return citaRepository.findByMedicoIdAndFecha(medicoId, fecha)
+                .stream()
+                .filter(cita -> !"CANCELADA".equalsIgnoreCase(cita.getEstado()))
+                .sorted(Comparator.comparing(Cita::getHora))
+                .toList();
+    }
+
+    private boolean cabeCitaEnSlot(LocalTime inicioSlot,
+                                   HorarioAtencionDTO config,
+                                   List<Cita> citasActivas,
+                                   int duracionEstandar) {
+        LocalTime finSlot = inicioSlot.plusMinutes(duracionEstandar);
+        if (finSlot.isAfter(config.getHoraFin())) {
+            return false;
+        }
+
+        return citasActivas.stream().noneMatch(cita -> seSolapa(inicioSlot, finSlot, cita, duracionEstandar));
+    }
+
+    private boolean seSolapa(LocalTime inicioNuevo, LocalTime finNuevo, Cita existente, int duracionEstandar) {
+        LocalTime inicioExistente = existente.getHora();
+        LocalTime finExistente = inicioExistente.plusMinutes(duracionCita(existente, duracionEstandar));
+        return inicioNuevo.isBefore(finExistente) && finNuevo.isAfter(inicioExistente);
+    }
+
+    private int duracionCita(Cita cita, int duracionEstandar) {
+        Integer duracion = cita.getDuracionMinutos();
+        return duracion != null && duracion > 0 ? duracion : duracionEstandar;
     }
 }

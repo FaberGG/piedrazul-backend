@@ -1,6 +1,7 @@
 package com.piedrazul.backend.agenda;
 
 import com.piedrazul.backend.agenda.internal.domain.Cita;
+import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaResponse;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.agenda.internal.service.CitaServiceImpl;
@@ -25,6 +26,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -204,5 +206,65 @@ class CitaServiceImplTest {
 
         assertThat(respuesta.getTotalSlots()).isZero();
         assertThat(respuesta.getHorariosDisponibles()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Agenda dinamica no debe mostrar 9:30 AM libre si no cabe una cita estandar de 30 minutos")
+    void obtenerAgendaDinamica_noDebeMostrarHuecoInutilizableTrasPrioridad() {
+        HorarioAtencionDTO horario30 = HorarioAtencionDTO.builder()
+                .horaInicio(LocalTime.of(9, 0))
+                .horaFin(LocalTime.of(11, 0))
+                .intervaloMinutos(30)
+                .diasAtencion(List.of(DayOfWeek.MONDAY))
+                .activo(true)
+                .build();
+
+        Cita base = Cita.builder()
+                .id(1L)
+                .pacienteId(10L)
+                .medicoId(1L)
+                .fecha(fechaLunes)
+                .hora(LocalTime.of(9, 0))
+                .duracionMinutos(15)
+                .tipoCita("ESTANDAR")
+                .estado("PROGRAMADA")
+                .build();
+
+        Cita prioridad = Cita.builder()
+                .id(2L)
+                .pacienteId(11L)
+                .medicoId(1L)
+                .fecha(fechaLunes)
+                .hora(LocalTime.of(9, 15))
+                .duracionMinutos(5)
+                .tipoCita("PRIORIDAD")
+                .estado("PROGRAMADA")
+                .build();
+
+        Cita siguiente = Cita.builder()
+                .id(3L)
+                .pacienteId(12L)
+                .medicoId(1L)
+                .fecha(fechaLunes)
+                .hora(LocalTime.of(9, 45))
+                .duracionMinutos(30)
+                .tipoCita("ESTANDAR")
+                .estado("PROGRAMADA")
+                .build();
+
+        when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoActivo);
+        when(medicosApi.obtenerHorarioAtencion(1L)).thenReturn(horario30);
+        when(citaRepository.findByMedicoIdAndFecha(1L, fechaLunes)).thenReturn(List.of(base, prioridad, siguiente));
+
+        AgendaDinamicaResponse respuesta = citaService.obtenerAgendaDinamica(1L, fechaLunes);
+
+        List<String> horasLibres = respuesta.getBloques().stream()
+                .flatMap(bloque -> bloque.getSlots().stream())
+                .filter(slot -> "LIBRE".equals(slot.getEstado()))
+                .map(slot -> slot.getHora())
+                .collect(Collectors.toList());
+
+        assertThat(horasLibres).doesNotContain("9:30 AM");
+        assertThat(horasLibres).contains("10:30 AM");
     }
 }
