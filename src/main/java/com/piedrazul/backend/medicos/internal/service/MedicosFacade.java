@@ -48,14 +48,14 @@ public class MedicosFacade implements MedicosApi {
     public HorarioAtencionDTO obtenerHorarioAtencion(Long medicoId) {
         return medicosRepository.findById(medicoId)
                 .map(this::toHorarioAtencion)
-                .orElse(null);
+                .orElseThrow(() -> new ResourceNotFoundException("Medico", medicoId));
     }
 
     @Override
     public MedicoResumenDTO obtenerResumenMedico(Long medicoId) {
         return medicosRepository.findById(medicoId)
                 .map(this::toResumen)
-                .orElse(null);
+                .orElseThrow(() -> new ResourceNotFoundException("Medico", medicoId));
     }
 
     @Override

@@ -6,6 +6,7 @@ import com.piedrazul.backend.pacientes.dto.PacienteResponse;
 import com.piedrazul.backend.pacientes.dto.PacienteSugerenciaResponse;
 import com.piedrazul.backend.pacientes.port.PacienteService;
 import com.piedrazul.backend.pacientes.repository.PacientesRepository;
+import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -57,7 +58,7 @@ public class PacienteServiceImpl implements PacienteService {
     @Override
     public PacienteResponse buscarPorId(Long id) {
         Paciente paciente = pacienteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Paciente no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente", id));
         return toResponse(paciente);
     }
 

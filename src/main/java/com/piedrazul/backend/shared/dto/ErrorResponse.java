@@ -10,7 +10,7 @@ import java.util.Map;
 
 /**
  * DTO estándar para respuestas de error.
- * Estructura: { status, message, timestamp, errors }
+ * Estructura: { status, error, message, timestamp, errors }
  */
 @Data
 @Builder
@@ -19,6 +19,7 @@ import java.util.Map;
 public class ErrorResponse {
 
     private int status;
+    private String error;
     private String message;
     private LocalDateTime timestamp;
     private Map<String, String> errors;
