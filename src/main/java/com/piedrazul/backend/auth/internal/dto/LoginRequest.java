@@ -1,4 +1,4 @@
-package com.piedrazul.backend.auth.dto;
+package com.piedrazul.backend.auth.internal.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;

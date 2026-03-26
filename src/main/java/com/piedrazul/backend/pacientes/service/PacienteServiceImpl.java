@@ -1,6 +1,6 @@
 package com.piedrazul.backend.pacientes.service;
 
-import com.piedrazul.backend.auth.domain.Usuario;
+import com.piedrazul.backend.auth.api.AuthApi;
 import com.piedrazul.backend.pacientes.domain.Paciente;
 import com.piedrazul.backend.pacientes.dto.PacienteResponse;
 import com.piedrazul.backend.pacientes.dto.PacienteSugerenciaResponse;
@@ -23,13 +23,21 @@ public class PacienteServiceImpl implements PacienteService {
     private static final int MIN_CARACTERES_BUSQUEDA = 2;
 
     private final PacientesRepository pacienteRepository;
+    private final AuthApi authApi;
 
     @Override
-    public void crearPaciente(Usuario usuario, String documento, String nombres,
+    public void crearPaciente(Long usuarioId, String documento, String nombres,
                               String apellidos, String celular, String correo,
                               LocalDate fechaNacimiento, String genero) {
+
+        if (usuarioId != null && !authApi.existeUsuarioActivo(usuarioId)) {
+            throw new IllegalArgumentException(
+                    "El usuario con id " + usuarioId + " no existe o no está activo"
+            );
+        }
+
         Paciente paciente = Paciente.builder()
-                .usuario(usuario)
+                .usuarioId(usuarioId)
                 .documento(documento)
                 .nombres(nombres)
                 .apellidos(apellidos)
@@ -41,6 +49,8 @@ public class PacienteServiceImpl implements PacienteService {
 
         pacienteRepository.save(paciente);
     }
+
+    // ── sin cambios desde aquí ────────────────────────────────────
 
     @Override
     public boolean existePorDocumento(String documento) {

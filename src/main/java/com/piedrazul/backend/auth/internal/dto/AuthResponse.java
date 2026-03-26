@@ -1,4 +1,4 @@
-package com.piedrazul.backend.auth.dto;
+package com.piedrazul.backend.auth.internal.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

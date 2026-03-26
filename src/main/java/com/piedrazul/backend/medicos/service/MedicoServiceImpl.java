@@ -1,6 +1,6 @@
 package com.piedrazul.backend.medicos.service;
 
-import com.piedrazul.backend.auth.domain.Usuario;
+import com.piedrazul.backend.auth.api.AuthApi;
 import com.piedrazul.backend.medicos.domain.Medico;
 import com.piedrazul.backend.medicos.port.MedicoService;
 import com.piedrazul.backend.medicos.repository.MedicosRepository;
@@ -14,12 +14,20 @@ import java.time.LocalTime;
 public class MedicoServiceImpl implements MedicoService {
 
     private final MedicosRepository medicoRepository;
+    private final AuthApi authApi;
 
     @Override
-    public void crearMedico(Usuario usuario, String nombres, String apellidos,
+    public void crearMedico(Long usuarioId, String nombres, String apellidos,
                             String especialidad, String tipo) {
+
+        if (usuarioId != null && !authApi.existeUsuarioActivo(usuarioId)) {
+            throw new IllegalArgumentException(
+                    "El usuario con id " + usuarioId + " no existe o no está activo"
+            );
+        }
+
         Medico medico = Medico.builder()
-                .usuario(usuario)
+                .usuarioId(usuarioId)
                 .nombres(nombres)
                 .apellidos(apellidos)
                 .especialidad(especialidad)

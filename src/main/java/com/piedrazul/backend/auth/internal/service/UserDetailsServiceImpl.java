@@ -1,7 +1,7 @@
-package com.piedrazul.backend.auth.service;
+package com.piedrazul.backend.auth.internal.service;
 
-import com.piedrazul.backend.auth.domain.Usuario;
-import com.piedrazul.backend.auth.repository.UsuarioRepository;
+import com.piedrazul.backend.auth.internal.domain.Usuario;
+import com.piedrazul.backend.auth.internal.repository.UsuarioRepository;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
