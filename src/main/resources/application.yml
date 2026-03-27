@@ -19,7 +19,6 @@ app:
   jwt:
     expiration: 86400000
   cors:
-    # Produccion debe definir origenes concretos por perfil/entorno.
     allowed-origins: []
     allowed-origin-patterns: []
     allowed-methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
