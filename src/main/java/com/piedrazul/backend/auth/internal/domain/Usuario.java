@@ -1,4 +1,4 @@
-package com.piedrazul.backend.auth.domain;
+package com.piedrazul.backend.auth.internal.domain;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

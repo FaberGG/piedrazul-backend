@@ -1,6 +1,6 @@
 package com.piedrazul.backend.pacientes.port;
 
-import com.piedrazul.backend.auth.domain.Usuario;
+import com.piedrazul.backend.auth.internal.domain.Usuario;
 import com.piedrazul.backend.pacientes.dto.PacienteResponse;
 import com.piedrazul.backend.pacientes.dto.PacienteSugerenciaResponse;
 import org.springframework.modulith.NamedInterface;
@@ -11,7 +11,7 @@ import java.util.List;
 @NamedInterface
 public interface PacienteService {
 
-    void crearPaciente(Usuario usuario, String documento, String nombres,
+    void crearPaciente(Long usuarioID, String documento, String nombres,
                        String apellidos, String celular, String correo,
                        LocalDate fechaNacimiento, String genero);
 

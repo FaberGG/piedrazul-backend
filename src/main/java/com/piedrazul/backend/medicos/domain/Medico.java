@@ -1,13 +1,9 @@
 package com.piedrazul.backend.medicos.domain;
 
-
-import com.piedrazul.backend.auth.domain.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.modulith.NamedInterface;
 
 import java.time.LocalTime;
-
 
 @Entity(name = "MedicosPaciente")
 @Table(name = "medicos")
@@ -15,16 +11,14 @@ import java.time.LocalTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@NamedInterface
 public class Medico {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne
-    @JoinColumn(name = "usuario_id", nullable = false, unique = true)
-    private Usuario usuario;
+    @Column(name = "usuario_id", nullable = false, unique = true)
+    private Long usuarioId;
 
     @Column(nullable = false, length = 100)
     private String nombres;

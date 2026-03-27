@@ -1,6 +1,6 @@
-package com.piedrazul.backend.auth.repository;
+package com.piedrazul.backend.auth.internal.repository;
 
-import com.piedrazul.backend.auth.domain.Usuario;
+import com.piedrazul.backend.auth.internal.domain.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
