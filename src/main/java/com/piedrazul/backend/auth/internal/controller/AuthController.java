@@ -1,10 +1,10 @@
-package com.piedrazul.backend.auth.controller;
+package com.piedrazul.backend.auth.internal.controller;
 
-import com.piedrazul.backend.auth.dto.AuthResponse;
-import com.piedrazul.backend.auth.dto.LoginRequest;
-import com.piedrazul.backend.auth.dto.RegisterMedicoRequest;
-import com.piedrazul.backend.auth.dto.RegisterPacienteRequest;
-import com.piedrazul.backend.auth.service.AuthService;
+import com.piedrazul.backend.auth.internal.dto.AuthResponse;
+import com.piedrazul.backend.auth.internal.dto.LoginRequest;
+import com.piedrazul.backend.auth.internal.dto.RegisterMedicoRequest;
+import com.piedrazul.backend.auth.internal.dto.RegisterPacienteRequest;
+import com.piedrazul.backend.auth.internal.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

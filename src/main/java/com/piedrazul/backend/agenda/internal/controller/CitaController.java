@@ -30,7 +30,7 @@ public class CitaController {
 
     /** RF1 — Listar agenda de un médico por fecha. */
     @GetMapping("/agenda")
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'ADMIN', 'MEDICO')")
     public ResponseEntity<AgendaResponse> listarAgenda(
             @RequestParam Long medicoId,
             @RequestParam LocalDate fecha) {

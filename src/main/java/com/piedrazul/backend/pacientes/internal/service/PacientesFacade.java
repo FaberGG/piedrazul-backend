@@ -25,7 +25,6 @@ public class PacientesFacade implements PacientesApi {
         Paciente paciente = pacientesRepository.findByDocumento(request.getDocumento())
                 .orElseGet(() -> pacientesRepository.save(
                         Paciente.builder()
-                                .usuario(null)
                                 .documento(request.getDocumento())
                                 .nombres(request.getNombres())
                                 .apellidos(request.getApellidos())

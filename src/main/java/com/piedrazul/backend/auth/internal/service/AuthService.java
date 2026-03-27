@@ -1,9 +1,9 @@
-package com.piedrazul.backend.auth.service;
+package com.piedrazul.backend.auth.internal.service;
 
-import com.piedrazul.backend.auth.dto.AuthResponse;
-import com.piedrazul.backend.auth.dto.LoginRequest;
-import com.piedrazul.backend.auth.dto.RegisterMedicoRequest;
-import com.piedrazul.backend.auth.dto.RegisterPacienteRequest;
+import com.piedrazul.backend.auth.internal.dto.AuthResponse;
+import com.piedrazul.backend.auth.internal.dto.LoginRequest;
+import com.piedrazul.backend.auth.internal.dto.RegisterMedicoRequest;
+import com.piedrazul.backend.auth.internal.dto.RegisterPacienteRequest;
 
 /**
  * Contrato interno del servicio de autenticación (módulo AUTH).

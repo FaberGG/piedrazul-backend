@@ -1,10 +1,11 @@
-package com.piedrazul.backend.auth.service;
+package com.piedrazul.backend.auth.internal.service;
 
-import com.piedrazul.backend.auth.AuthApi;
-import com.piedrazul.backend.auth.dto.UsuarioInfoDto;
-import com.piedrazul.backend.auth.repository.UsuarioRepository;
+import com.piedrazul.backend.auth.api.AuthApi;
+import com.piedrazul.backend.auth.api.dto.UsuarioInfoDto;
+import com.piedrazul.backend.auth.internal.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 
 import java.util.Optional;
 
@@ -71,6 +72,17 @@ public class AuthFacade implements AuthApi {
         return usuarioRepository.findById(usuarioId)
                 .map(u -> "ACTIVO".equals(u.getEstado()))
                 .orElse(false);
+    }
+
+    @Override
+    public Optional<UsuarioInfoDto> findById(Long usuarioId) {
+        return usuarioRepository.findById(usuarioId)
+                .map(u -> UsuarioInfoDto.builder()
+                        .id(u.getId())
+                        .username(u.getUsername())
+                        .rol(u.getRol())
+                        .estado(u.getEstado())
+                        .build());
     }
 }
 

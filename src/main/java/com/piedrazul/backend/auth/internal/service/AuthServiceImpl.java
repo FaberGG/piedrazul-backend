@@ -1,11 +1,11 @@
-package com.piedrazul.backend.auth.service;
+package com.piedrazul.backend.auth.internal.service;
 
-import com.piedrazul.backend.auth.domain.Usuario;
-import com.piedrazul.backend.auth.dto.AuthResponse;
-import com.piedrazul.backend.auth.dto.LoginRequest;
-import com.piedrazul.backend.auth.dto.RegisterMedicoRequest;
-import com.piedrazul.backend.auth.dto.RegisterPacienteRequest;
-import com.piedrazul.backend.auth.repository.UsuarioRepository;
+import com.piedrazul.backend.auth.internal.domain.Usuario;
+import com.piedrazul.backend.auth.internal.dto.AuthResponse;
+import com.piedrazul.backend.auth.internal.dto.LoginRequest;
+import com.piedrazul.backend.auth.internal.dto.RegisterMedicoRequest;
+import com.piedrazul.backend.auth.internal.dto.RegisterPacienteRequest;
+import com.piedrazul.backend.auth.internal.repository.UsuarioRepository;
 import com.piedrazul.backend.medicos.port.MedicoService;
 import com.piedrazul.backend.pacientes.port.PacienteService;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
@@ -121,7 +121,7 @@ public class AuthServiceImpl implements AuthService {
 
         // 5. Crear Paciente vinculado
         pacienteService.crearPaciente(
-                usuario,
+                usuario.getId(),
                 request.getDocumento(),
                 request.getNombres(),
                 request.getApellidos(),
@@ -169,7 +169,7 @@ public class AuthServiceImpl implements AuthService {
 
         // 4. Crear Medico vinculado
         medicoService.crearMedico(
-                usuario,
+                usuario.getId(),
                 request.getNombres(),
                 request.getApellidos(),
                 request.getEspecialidad(),

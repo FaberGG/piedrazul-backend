@@ -1,6 +1,5 @@
 package com.piedrazul.backend.pacientes.domain;
 
-import com.piedrazul.backend.auth.domain.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,9 +23,8 @@ public class Paciente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne
-    @JoinColumn(name = "usuario_id", nullable = true, unique = true)
-    private Usuario usuario;
+    @Column(name = "usuario_id", unique = true) // ← solo referencia, sin @OneToOne
+    private Long usuarioId;
 
     @Column(nullable = false, unique = true, length = 20)
     private String documento;
