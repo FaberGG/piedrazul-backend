@@ -1,11 +1,9 @@
 package com.piedrazul.backend.medicos.domain;
 
-
 import com.piedrazul.backend.auth.domain.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.modulith.NamedInterface;
-
 import java.time.LocalTime;
 
 
