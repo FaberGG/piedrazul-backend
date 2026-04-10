@@ -6,8 +6,10 @@ import com.piedrazul.backend.auth.internal.dto.LoginRequest;
 import com.piedrazul.backend.auth.internal.dto.RegisterMedicoRequest;
 import com.piedrazul.backend.auth.internal.dto.RegisterPacienteRequest;
 import com.piedrazul.backend.auth.internal.repository.UsuarioRepository;
-import com.piedrazul.backend.medicos.port.MedicoService;
-import com.piedrazul.backend.pacientes.port.PacienteService;
+import com.piedrazul.backend.medicos.api.MedicosApi;
+import com.piedrazul.backend.medicos.api.dto.RegistroMedicoDTO;
+import com.piedrazul.backend.pacientes.api.PacientesApi;
+import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.security.JwtService;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -20,8 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * DEPENDENCIAS:
  *  - usuarioRepository → buscar y persistir usuarios
- *  - pacienteService   → crear datos personales del paciente (módulo pacientes)
- *  - medicoService     → crear datos personales del médico (módulo medicos)
+ *  - pacientesApi      → registrar datos personales del paciente (módulo pacientes)
+ *  - medicosApi        → registrar datos personales del medico (modulo medicos)
  *  - jwtService        → generar token JWT tras autenticación exitosa
  *  - passwordEncoder   → verificar/hashear contraseñas con BCrypt
  */
@@ -30,19 +32,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthServiceImpl implements AuthService {
 
     private final UsuarioRepository usuarioRepository;
-    private final PacienteService   pacienteService;
-    private final MedicoService     medicoService;
+    private final PacientesApi      pacientesApi;
+    private final MedicosApi        medicosApi;
     private final JwtService        jwtService;
     private final PasswordEncoder   passwordEncoder;
 
     public AuthServiceImpl(UsuarioRepository usuarioRepository,
-                           PacienteService pacienteService,
-                           MedicoService medicoService,
+                           PacientesApi pacientesApi,
+                           MedicosApi medicosApi,
                            JwtService jwtService,
                            PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
-        this.pacienteService   = pacienteService;
-        this.medicoService     = medicoService;
+        this.pacientesApi      = pacientesApi;
+        this.medicosApi        = medicosApi;
         this.jwtService        = jwtService;
         this.passwordEncoder   = passwordEncoder;
     }
@@ -92,11 +94,10 @@ public class AuthServiceImpl implements AuthService {
      *
      * PASOS:
      *  1. Verificar username único → BusinessRuleException si ya existe
-     *  2. Verificar documento único → BusinessRuleException si ya existe
-     *  3. Crear Usuario con password encriptado, rol=PACIENTE, estado=ACTIVO
-     *  4. Persistir Usuario
-     *  5. Crear Paciente vinculado al Usuario via PacienteService
-     *  6. Generar JWT y retornar AuthResponse
+     *  2. Crear Usuario con password encriptado, rol=PACIENTE, estado=ACTIVO
+     *  3. Persistir Usuario
+     *  4. Crear Paciente vinculado al Usuario via PacientesApi
+     *  5. Generar JWT y retornar AuthResponse
      */
     @Override
     public AuthResponse registerPaciente(RegisterPacienteRequest request) {
@@ -105,12 +106,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessRuleException("El username ya está en uso");
         }
 
-        // 2. Verificar documento único
-        if (pacienteService.existePorDocumento(request.getDocumento())) {
-            throw new BusinessRuleException("El documento ya está registrado");
-        }
-
-        // 3 y 4. Crear y persistir Usuario
+        // 2 y 3. Crear y persistir Usuario
         Usuario usuario = Usuario.builder()
                 .username(request.getUsername())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -119,19 +115,21 @@ public class AuthServiceImpl implements AuthService {
 
         usuarioRepository.save(usuario);
 
-        // 5. Crear Paciente vinculado
-        pacienteService.crearPaciente(
-                usuario.getId(),
-                request.getDocumento(),
-                request.getNombres(),
-                request.getApellidos(),
-                request.getCelular(),
-                request.getCorreo(),
-                request.getFechaNacimiento(),
-                request.getGenero()
+        // 4. Crear Paciente vinculado
+        pacientesApi.registrarPacienteConUsuario(
+                RegistroPacienteDTO.builder()
+                        .usuarioId(usuario.getId())
+                        .documento(request.getDocumento())
+                        .nombres(request.getNombres())
+                        .apellidos(request.getApellidos())
+                        .celular(request.getCelular())
+                        .correo(request.getCorreo())
+                        .fechaNacimiento(request.getFechaNacimiento())
+                        .genero(request.getGenero())
+                        .build()
         );
 
-        // 6. Generar JWT y retornar respuesta
+        // 5. Generar JWT y retornar respuesta
         String token = jwtService.generateToken(usuario.getUsername(), usuario.getId(), usuario.getRol());
 
         return AuthResponse.builder()
@@ -148,7 +146,7 @@ public class AuthServiceImpl implements AuthService {
      *  1. Verificar username único → BusinessRuleException si ya existe
      *  2. Crear Usuario con password encriptado, rol=MEDICO, estado=ACTIVO
      *  3. Persistir Usuario
-     *  4. Crear Medico vinculado al Usuario via MedicoService
+     *  4. Crear Medico vinculado al Usuario via MedicosApi
      *  5. Generar JWT y retornar AuthResponse
      */
     @Override
@@ -168,12 +166,14 @@ public class AuthServiceImpl implements AuthService {
         usuarioRepository.save(usuario);
 
         // 4. Crear Medico vinculado
-        medicoService.crearMedico(
-                usuario.getId(),
-                request.getNombres(),
-                request.getApellidos(),
-                request.getEspecialidad(),
-                request.getTipo()
+        medicosApi.registrarMedicoConUsuario(
+                RegistroMedicoDTO.builder()
+                        .usuarioId(usuario.getId())
+                        .nombres(request.getNombres())
+                        .apellidos(request.getApellidos())
+                        .especialidad(request.getEspecialidad())
+                        .tipo(request.getTipo())
+                        .build()
         );
 
         // 5. Generar JWT y retornar respuesta

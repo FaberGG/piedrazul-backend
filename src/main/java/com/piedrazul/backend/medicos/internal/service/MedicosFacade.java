@@ -3,11 +3,13 @@ package com.piedrazul.backend.medicos.internal.service;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
 import com.piedrazul.backend.medicos.api.dto.MedicoResumenDTO;
-import com.piedrazul.backend.medicos.domain.Medico;
-import com.piedrazul.backend.medicos.dto.ConfiguracionAgendaMedicoResponse;
-import com.piedrazul.backend.medicos.dto.ConfigurarAgendaMedicoRequest;
-import com.piedrazul.backend.medicos.dto.MedicoListadoResponse;
-import com.piedrazul.backend.medicos.repository.MedicosRepository;
+import com.piedrazul.backend.medicos.api.dto.RegistroMedicoDTO;
+import com.piedrazul.backend.auth.api.AuthApi;
+import com.piedrazul.backend.medicos.internal.domain.Medico;
+import com.piedrazul.backend.medicos.internal.dto.ConfiguracionAgendaMedicoResponse;
+import com.piedrazul.backend.medicos.internal.dto.ConfigurarAgendaMedicoRequest;
+import com.piedrazul.backend.medicos.internal.dto.MedicoListadoResponse;
+import com.piedrazul.backend.medicos.internal.repository.MedicosRepository;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +44,37 @@ public class MedicosFacade implements MedicosApi {
     );
     private static final Set<Integer> INTERVALOS_VALIDOS = Set.of(5, 10, 15, 20, 30, 45, 60);
 
+    private final AuthApi authApi;
     private final MedicosRepository medicosRepository;
+
+    @Override
+    @Transactional
+    public void registrarMedicoConUsuario(RegistroMedicoDTO request) {
+        if (request.getUsuarioId() == null) {
+            throw new BusinessRuleException("El usuarioId es obligatorio para registrar un medico");
+        }
+
+        if (!authApi.existeUsuarioActivo(request.getUsuarioId())) {
+            throw new BusinessRuleException("El usuario con id " + request.getUsuarioId() + " no existe o no esta activo");
+        }
+
+        if (medicosRepository.existsByUsuarioId(request.getUsuarioId())) {
+            throw new BusinessRuleException("El usuario ya tiene un medico vinculado");
+        }
+
+        medicosRepository.save(Medico.builder()
+                .usuarioId(request.getUsuarioId())
+                .nombres(request.getNombres())
+                .apellidos(request.getApellidos())
+                .especialidad(request.getEspecialidad())
+                .tipo(request.getTipo())
+                .estado("ACTIVO")
+                .horaInicioAtencion(HORA_INICIO_DEFAULT)
+                .horaFinAtencion(HORA_FIN_DEFAULT)
+                .intervaloMinutos(INTERVALO_DEFAULT)
+                .diasAtencion(serializarDias(DIAS_DEFAULT))
+                .build());
+    }
 
     @Override
     public HorarioAtencionDTO obtenerHorarioAtencion(Long medicoId) {

@@ -1,4 +1,4 @@
-package com.piedrazul.backend.pacientes.api.dto;
+package com.piedrazul.backend.pacientes.internal.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -7,22 +7,19 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
-/**
- * DTO publico para registrar o actualizar datos basicos de paciente en flujos de agenda.
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RegistroPacienteDTO {
+public class PacienteResponse {
 
-    private Long usuarioId;
+    private Long id;
     private String documento;
     private String nombres;
     private String apellidos;
     private String celular;
-    private String genero;
-    private LocalDate fechaNacimiento;
     private String correo;
-}
+    private LocalDate fechaNacimiento;
+    private String genero;
 
+}

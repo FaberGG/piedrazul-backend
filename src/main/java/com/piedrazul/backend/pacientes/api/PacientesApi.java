@@ -8,6 +8,8 @@ import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
  */
 public interface PacientesApi {
 
+    PacienteResumenDTO registrarPacienteConUsuario(RegistroPacienteDTO request);
+
     PacienteResumenDTO obtenerOCrearPorDocumento(RegistroPacienteDTO request);
 
     PacienteResumenDTO obtenerResumenPorId(Long pacienteId);
