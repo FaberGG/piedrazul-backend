@@ -18,7 +18,9 @@
                 "medicos::api",
                 "medicos::api-dto",
                 "shared::exception",
-                "shared::audit"
+                "shared::audit",
+                "shared::security"
+
         })
 package com.piedrazul.backend.auth;
 
