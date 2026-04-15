@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/piedrazul_dev
+    url: jdbc:postgresql://localhost:5432/piedrazul_dev?currentSchema=public
     username: piedrazul_user
     password: piedrazul_pass
     driver-class-name: org.postgresql.Driver
@@ -9,7 +9,11 @@ spring:
       ddl-auto: update
     show-sql: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
-
+  security:
+      oauth2:
+        resourceserver:
+          jwt:
+            issuer-uri: http://localhost:8180/realms/piedra-azul
 app:
   jwt:
     secret: dev-secret-key-must-be-at-least-512-bits-long-for-hmac-sha512-algorithm-replace-in-prod

@@ -3,6 +3,11 @@ spring:
     name: piedrazul-backend
   profiles:
     active: dev
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/piedra-azul
   jpa:
     hibernate:
       ddl-auto: validate
@@ -16,8 +21,6 @@ springdoc:
     path: /swagger-ui.html
 
 app:
-  jwt:
-    expiration: 86400000
   cors:
     allowed-origins: []
     allowed-origin-patterns: []

@@ -4,9 +4,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -14,31 +12,28 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoders;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import java.util.List;
-
-/**
- * Configuración de Spring Security.
- * - Stateless (JWT)
- * - BCrypt para contraseñas
- * - RBAC con @PreAuthorize
- */
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
-
     private final AppCorsProperties corsProperties;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, AppCorsProperties corsProperties) {
-        this.jwtAuthFilter = jwtAuthFilter;
+    public SecurityConfig(AppCorsProperties corsProperties) {
         this.corsProperties = corsProperties;
     }
 
@@ -57,59 +52,62 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/v1/auth/login").permitAll()
                         .requestMatchers("/api/v1/auth/register/paciente").permitAll()
-                        .requestMatchers("/api/v1/auth/register/admin").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                );
 
         return http.build();
     }
 
     @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
+            if (realmAccess == null || !realmAccess.containsKey("roles")) {
+                return List.of();
+            }
+            @SuppressWarnings("unchecked")
+            List<String> roles = (List<String>) realmAccess.get("roles");
+            return roles.stream()
+                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                    .collect(Collectors.toList());
+        });
+        return converter;
+    }
+    @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
         List<String> cleanAllowedOrigins = clean(corsProperties.getAllowedOrigins());
         List<String> cleanAllowedOriginPatterns = clean(corsProperties.getAllowedOriginPatterns());
-
-        if (!cleanAllowedOrigins.isEmpty()) {
-            configuration.setAllowedOrigins(cleanAllowedOrigins);
-        }
-        if (!cleanAllowedOriginPatterns.isEmpty()) {
-            configuration.setAllowedOriginPatterns(cleanAllowedOriginPatterns);
-        }
-
+        if (!cleanAllowedOrigins.isEmpty()) configuration.setAllowedOrigins(cleanAllowedOrigins);
+        if (!cleanAllowedOriginPatterns.isEmpty()) configuration.setAllowedOriginPatterns(cleanAllowedOriginPatterns);
         configuration.setAllowedMethods(clean(corsProperties.getAllowedMethods()));
         configuration.setAllowedHeaders(clean(corsProperties.getAllowedHeaders()));
         configuration.setExposedHeaders(clean(corsProperties.getExposedHeaders()));
         configuration.setAllowCredentials(corsProperties.isAllowCredentials());
         configuration.setMaxAge(corsProperties.getMaxAge());
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 
     private List<String> clean(List<String> values) {
-        if (values == null) {
-            return List.of();
-        }
-        return values.stream()
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .toList();
+        if (values == null) return List.of();
+        return values.stream().map(String::trim).filter(v -> !v.isEmpty()).toList();
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
-
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
+    public JwtDecoder jwtDecoder() {
+        return JwtDecoders.fromIssuerLocation("http://localhost:8180/realms/piedra-azul");
     }
+
 }
