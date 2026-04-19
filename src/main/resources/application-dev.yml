@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/piedrazul_dev?currentSchema=public
+    url: jdbc:postgresql://localhost:5433/piedrazul_dev?currentSchema=public
     username: piedrazul_user
     password: piedrazul_pass
     driver-class-name: org.postgresql.Driver
@@ -14,8 +14,21 @@ spring:
         resourceserver:
           jwt:
             issuer-uri: http://localhost:8180/realms/piedra-azul
+keycloak:
+  admin:
+    server-url: http://localhost:8180
+    realm: piedra-azul
+    client-id: piedra-azul-backend
+    client-secret: S5BTwSG8FJnxdOzbHYZfChn2p7jQYBCr
+
+
 app:
   jwt:
     secret: dev-secret-key-must-be-at-least-512-bits-long-for-hmac-sha512-algorithm-replace-in-prod
   cors:
     allowed-origin-patterns: ["*"]
+
+logging:
+  level:
+    com.piedrazul: DEBUG
+    org.keycloak: DEBUG

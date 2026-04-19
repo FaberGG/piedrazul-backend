@@ -10,6 +10,7 @@ import com.piedrazul.backend.medicos.api.dto.RegistroMedicoDTO;
 import com.piedrazul.backend.pacientes.api.PacientesApi;
 import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,16 +33,18 @@ public class AuthServiceImpl implements AuthService {
     private final PacientesApi      pacientesApi;
     private final MedicosApi        medicosApi;
     private final PasswordEncoder   passwordEncoder;
+    private final KeycloakAdminService keycloakAdminService;
 
     // ← ya no inyectas JwtService
     public AuthServiceImpl(UsuarioRepository usuarioRepository,
                            PacientesApi pacientesApi,
                            MedicosApi medicosApi,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder, KeycloakAdminService keycloakAdminService) {
         this.usuarioRepository = usuarioRepository;
         this.pacientesApi      = pacientesApi;
         this.medicosApi        = medicosApi;
         this.passwordEncoder   = passwordEncoder;
+        this.keycloakAdminService  = keycloakAdminService;
     }
 
     // ← login() se elimina completo, Keycloak lo maneja
@@ -51,6 +54,14 @@ public class AuthServiceImpl implements AuthService {
         if (usuarioRepository.existsByUsername(request.getUsername())) {
             throw new BusinessRuleException("El username ya está en uso");
         }
+        validarPassword(request.getPassword());
+
+         keycloakAdminService.crearUsuario( 
+            request.getUsername(),
+            request.getCorreo(),
+            request.getPassword(),
+            "PACIENTE"
+    );
 
         Usuario usuario = Usuario.builder()
                 .username(request.getUsername())
@@ -79,6 +90,8 @@ public class AuthServiceImpl implements AuthService {
         if (usuarioRepository.existsByUsername(request.getUsername())) {
             throw new BusinessRuleException("El username ya está en uso");
         }
+        validarPassword(request.getPassword());
+       
 
         Usuario usuario = Usuario.builder()
                 .username(request.getUsername())
@@ -104,6 +117,7 @@ public class AuthServiceImpl implements AuthService {
         if (usuarioRepository.existsByUsername(request.getUsername())) {
             throw new BusinessRuleException("El username ya está en uso");
         }
+        validarPassword(request.getPassword());
 
         Usuario usuario = Usuario.builder()
                 .username(request.getUsername())
@@ -112,5 +126,22 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         usuarioRepository.save(usuario);
+
+        validarPassword(request.getPassword());
     }
+
+    private void validarPassword(String password) {
+    if (password == null || password.length() < 8) {
+        throw new BusinessRuleException("La contraseña debe tener al menos 8 caracteres");
+    }
+    if (!password.matches(".*[A-Z].*")) {
+        throw new BusinessRuleException("La contraseña debe contener al menos una mayúscula");
+    }
+    if (!password.matches(".*[0-9].*")) {
+        throw new BusinessRuleException("La contraseña debe contener al menos un número");
+    }
+    if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{}|;':\",./<>?].*")) {
+        throw new BusinessRuleException("La contraseña debe contener al menos un carácter especial");
+    }
+}
 }
