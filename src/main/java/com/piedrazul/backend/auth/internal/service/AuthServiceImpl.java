@@ -35,7 +35,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder   passwordEncoder;
     private final KeycloakAdminService keycloakAdminService;
 
-    // ← ya no inyectas JwtService
+    // ya no inyectas JwtService
     public AuthServiceImpl(UsuarioRepository usuarioRepository,
                            PacientesApi pacientesApi,
                            MedicosApi medicosApi,
@@ -47,88 +47,105 @@ public class AuthServiceImpl implements AuthService {
         this.keycloakAdminService  = keycloakAdminService;
     }
 
-    // ← login() se elimina completo, Keycloak lo maneja
+    //  login() se elimina completo, Keycloak lo maneja
 
     @Override
-    public void registerPaciente(RegisterPacienteRequest request) {
-        if (usuarioRepository.existsByUsername(request.getUsername())) {
-            throw new BusinessRuleException("El username ya está en uso");
-        }
-        validarPassword(request.getPassword());
+public void registerPaciente(RegisterPacienteRequest request) {
+    if (usuarioRepository.existsByUsername(request.getUsername())) {
+        throw new BusinessRuleException("El username ya está en uso");
+    }
+    validarPassword(request.getPassword());
 
-         keycloakAdminService.crearUsuario( 
+    keycloakAdminService.crearUsuario(
             request.getUsername(),
             request.getCorreo(),
             request.getPassword(),
-            "PACIENTE"
+            "PACIENTE",
+            request.getNombres(),
+            request.getApellidos()
     );
 
-        Usuario usuario = Usuario.builder()
-                .username(request.getUsername())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .rol("PACIENTE")
-                .build();
+    Usuario usuario = Usuario.builder()
+            .username(request.getUsername())
+            .password(passwordEncoder.encode(request.getPassword()))
+            .rol("PACIENTE")
+            .build();
 
-        usuarioRepository.save(usuario);
+    usuarioRepository.save(usuario);
 
-        pacientesApi.registrarPacienteConUsuario(
-                RegistroPacienteDTO.builder()
-                        .usuarioId(usuario.getId())
-                        .documento(request.getDocumento())
-                        .nombres(request.getNombres())
-                        .apellidos(request.getApellidos())
-                        .celular(request.getCelular())
-                        .correo(request.getCorreo())
-                        .fechaNacimiento(request.getFechaNacimiento())
-                        .genero(request.getGenero())
-                        .build()
-        );
+    pacientesApi.registrarPacienteConUsuario(
+            RegistroPacienteDTO.builder()
+                    .usuarioId(usuario.getId())
+                    .documento(request.getDocumento())
+                    .nombres(request.getNombres())
+                    .apellidos(request.getApellidos())
+                    .celular(request.getCelular())
+                    .correo(request.getCorreo())
+                    .fechaNacimiento(request.getFechaNacimiento())
+                    .genero(request.getGenero())
+                    .build()
+    );
+}
+
+@Override
+public void registerMedico(RegisterMedicoRequest request) {
+    if (usuarioRepository.existsByUsername(request.getUsername())) {
+        throw new BusinessRuleException("El username ya está en uso");
     }
+    validarPassword(request.getPassword());
 
-    @Override
-    public void registerMedico(RegisterMedicoRequest request) {
-        if (usuarioRepository.existsByUsername(request.getUsername())) {
-            throw new BusinessRuleException("El username ya está en uso");
-        }
-        validarPassword(request.getPassword());
-       
+    keycloakAdminService.crearUsuario(
+            request.getUsername(),
+            null,
+            request.getPassword(),
+            "MEDICO",
+            request.getNombres(),
+            request.getApellidos()
+    );
 
-        Usuario usuario = Usuario.builder()
-                .username(request.getUsername())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .rol("MEDICO")
-                .build();
+    Usuario usuario = Usuario.builder()
+            .username(request.getUsername())
+            .password(passwordEncoder.encode(request.getPassword()))
+            .rol("MEDICO")
+            .build();
 
-        usuarioRepository.save(usuario);
+    usuarioRepository.save(usuario);
 
-        medicosApi.registrarMedicoConUsuario(
-                RegistroMedicoDTO.builder()
-                        .usuarioId(usuario.getId())
-                        .nombres(request.getNombres())
-                        .apellidos(request.getApellidos())
-                        .especialidad(request.getEspecialidad())
-                        .tipo(request.getTipo())
-                        .build()
-        );
+    medicosApi.registrarMedicoConUsuario(
+            RegistroMedicoDTO.builder()
+                    .usuarioId(usuario.getId())
+                    .nombres(request.getNombres())
+                    .apellidos(request.getApellidos())
+                    .especialidad(request.getEspecialidad())
+                    .tipo(request.getTipo())
+                    .build()
+    );
+}
+
+@Override
+public void registerAdmin(LoginRequest request) {
+    if (usuarioRepository.existsByUsername(request.getUsername())) {
+        throw new BusinessRuleException("El username ya está en uso");
     }
+    validarPassword(request.getPassword());
 
-    @Override
-    public void registerAdmin(LoginRequest request) {
-        if (usuarioRepository.existsByUsername(request.getUsername())) {
-            throw new BusinessRuleException("El username ya está en uso");
-        }
-        validarPassword(request.getPassword());
+    keycloakAdminService.crearUsuario(
+            request.getUsername(),
+            null,
+            request.getPassword(),
+            "ADMIN",
+            null,
+            null
+    );
 
-        Usuario usuario = Usuario.builder()
-                .username(request.getUsername())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .rol("ADMIN")
-                .build();
+    Usuario usuario = Usuario.builder()
+            .username(request.getUsername())
+            .password(passwordEncoder.encode(request.getPassword()))
+            .rol("ADMIN")
+            .build();
 
-        usuarioRepository.save(usuario);
-
-        validarPassword(request.getPassword());
-    }
+    usuarioRepository.save(usuario);
+}
 
     private void validarPassword(String password) {
     if (password == null || password.length() < 8) {

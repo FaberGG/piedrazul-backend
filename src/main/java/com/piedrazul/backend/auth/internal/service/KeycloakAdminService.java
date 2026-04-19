@@ -7,7 +7,9 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+
 import java.util.List;
 import java.util.Map;
 
@@ -22,8 +24,13 @@ public class KeycloakAdminService {
         this.props = props;
     }
 
-    private String obtenerToken() {
-    String tokenUrl = props.getServerUrl() + "/realms/" + props.getRealm() + "/protocol/openid-connect/token";
+   
+   private String obtenerToken() {
+
+    String tokenUrl = props.getServerUrl()
+            + "/realms/" + props.getRealm()
+            + "/protocol/openid-connect/token";
+
     log.info("Obteniendo token de: {}", tokenUrl);
 
     HttpHeaders headers = new HttpHeaders();
@@ -33,52 +40,73 @@ public class KeycloakAdminService {
     body.add("grant_type", "client_credentials");
     body.add("client_id", props.getClientId());
     body.add("client_secret", props.getClientSecret());
-    log.info("Usando clientId: '{}' secret: '{}'", props.getClientId(), props.getClientSecret());
+    log.info("Secret que se usa: '{}'", props.getClientSecret());
 
     try {
         ResponseEntity<Map> response = restTemplate.postForEntity(
-            tokenUrl, new HttpEntity<>(body, headers), Map.class);
+                tokenUrl,
+                new HttpEntity<>(body, headers),
+                Map.class
+        );
+
+        if (response.getBody() == null || response.getBody().get("access_token") == null) {
+            throw new BusinessRuleException("Keycloak no devolvió access_token");
+        }
+
         String token = (String) response.getBody().get("access_token");
-        log.info("Token obtenido: {}", token != null ? "OK" : "NULL");
+
+        log.info("Token obtenido correctamente");
         return token;
+
     } catch (Exception e) {
-        log.error("Error obteniendo token: {} - {}", e.getClass().getSimpleName(), e.getMessage());
+        log.error("Error obteniendo token de Keycloak: {}", e.getMessage());
         throw new BusinessRuleException("Error conectando a Keycloak: " + e.getMessage());
     }
 }
 
-    public void crearUsuario(String username, String email, String password, String rol) {
-        log.info("Creando usuario en Keycloak: {}", username);
+    // 👤 CREAR USUARIO
+    public void crearUsuario(String username, String email, String password, String rol, String nombres, String apellidos) {
 
-        String token = obtenerToken();
+    log.info("Creando usuario en Keycloak: {}", username);
 
-        String usersUrl = props.getServerUrl() + "/admin/realms/" + props.getRealm() + "/users";
+    String token = obtenerToken();
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(token);
+    String usersUrl = props.getServerUrl()
+            + "/admin/realms/" + props.getRealm() + "/users";
 
-        Map<String, Object> userBody = Map.of(
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    headers.setBearerAuth(token);
+
+    Map<String, Object> userBody = Map.of(
             "username", username != null ? username : "",
             "email", email != null ? email : "",
+            "firstName", nombres != null ? nombres : "",
+            "lastName", apellidos != null ? apellidos : "",
             "enabled", true,
-            "credentials", List.of(Map.of(
-                "type", "password",
-                "value", password,
-                "temporary", false
-            ))
-        );
+            "emailVerified", true,
+            "credentials", List.of(
+                    Map.of(
+                            "type", "password",
+                            "value", password,
+                            "temporary", false
+                    )
+            )
+    );
 
+    try {
         ResponseEntity<Void> response = restTemplate.postForEntity(
-            usersUrl, new HttpEntity<>(userBody, headers), Void.class);
-
-        log.info("Respuesta Keycloak: {}", response.getStatusCode());
-
-        if (response.getStatusCode() == HttpStatus.CONFLICT) {
+                usersUrl,
+                new HttpEntity<>(userBody, headers),
+                Void.class
+        );
+        log.info("Usuario creado en Keycloak. Status: {}", response.getStatusCode());
+    } catch (HttpClientErrorException e) {
+        if (e.getStatusCode() == HttpStatus.CONFLICT) {
             throw new BusinessRuleException("El usuario ya existe en Keycloak");
         }
-        if (!response.getStatusCode().is2xxSuccessful()) {
-            throw new BusinessRuleException("Error al crear usuario en Keycloak: " + response.getStatusCode());
-        }
+        log.error("Error creando usuario en Keycloak: {}", e.getResponseBodyAsString());
+        throw new BusinessRuleException("Error creando usuario: " + e.getMessage());
     }
+}
 }

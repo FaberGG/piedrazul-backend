@@ -18,7 +18,7 @@ keycloak:
   admin:
     server-url: http://localhost:8180
     realm: piedra-azul
-    client-id: piedra-azul-backend
+    client-id: piedrazul-backend
     client-secret: S5BTwSG8FJnxdOzbHYZfChn2p7jQYBCr
 
 
