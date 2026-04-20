@@ -1,6 +1,7 @@
 package com.piedrazul.backend.agenda.internal.service;
 
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
+import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
@@ -30,6 +31,8 @@ class CitaServiceImplPrimerHorarioTest {
 
     @Mock
     private CitaRepository citaRepository;
+    @Mock
+    private AgendaDiaLockRepository agendaDiaLockRepository;
     @Mock
     private DisponibilidadService disponibilidadService;
     @Mock

@@ -9,8 +9,10 @@ import com.piedrazul.backend.agenda.internal.dto.CitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
+import com.piedrazul.backend.agenda.internal.domain.AgendaDiaLock;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
 import com.piedrazul.backend.agenda.internal.event.AgendaDinamicaChangedEvent;
+import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
@@ -22,6 +24,8 @@ import com.piedrazul.backend.shared.audit.AuditService;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -63,6 +67,7 @@ public class CitaServiceImpl implements CitaService {
     private static final DateTimeFormatter HORA_AGENDA_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private final CitaRepository        citaRepository;
+    private final AgendaDiaLockRepository agendaDiaLockRepository;
     private final DisponibilidadService disponibilidadService;
     private final PacientesApi          pacientesApi;
     private final MedicosApi            medicosApi;
@@ -70,12 +75,14 @@ public class CitaServiceImpl implements CitaService {
     private final ApplicationEventPublisher eventPublisher;
 
     public CitaServiceImpl(CitaRepository citaRepository,
+                           AgendaDiaLockRepository agendaDiaLockRepository,
                            DisponibilidadService disponibilidadService,
                            PacientesApi pacientesApi,
                            MedicosApi medicosApi,
                            AuditService auditService,
                            ApplicationEventPublisher eventPublisher) {
         this.citaRepository        = citaRepository;
+        this.agendaDiaLockRepository = agendaDiaLockRepository;
         this.disponibilidadService = disponibilidadService;
         this.pacientesApi          = pacientesApi;
         this.medicosApi            = medicosApi;
@@ -191,7 +198,10 @@ public class CitaServiceImpl implements CitaService {
             throw new BusinessRuleException("La fecha debe ser futura");
         }
 
-        LocalTime hora = parseHora(request.getHora());
+        try {
+            adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
+
+            LocalTime hora = parseHora(request.getHora());
 
         MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(request.getMedicoId());
         if (medico == null) {
@@ -248,7 +258,12 @@ public class CitaServiceImpl implements CitaService {
 
         publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
 
-        return mapToResponse(guardada, paciente, medico);
+            return mapToResponse(guardada, paciente, medico);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw conflictoConcurrencia();
+        } catch (DataIntegrityViolationException ex) {
+            throw conflictoSlotOcupado();
+        }
     }
 
     @Override
@@ -341,7 +356,10 @@ public class CitaServiceImpl implements CitaService {
 
     @Override
     public CitaResponse crearCitaPrioritaria(CrearCitaPrioritariaRequest request) {
-        MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(request.getMedicoId());
+        try {
+            adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
+
+            MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(request.getMedicoId());
         if (medico == null) {
             throw new ResourceNotFoundException("Medico", request.getMedicoId());
         }
@@ -444,7 +462,12 @@ public class CitaServiceImpl implements CitaService {
 
         publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_PRIORIDAD_CREADA");
 
-        return mapToResponse(guardada, paciente, medico);
+            return mapToResponse(guardada, paciente, medico);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw conflictoConcurrencia();
+        } catch (DataIntegrityViolationException ex) {
+            throw conflictoSlotOcupado();
+        }
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -465,8 +488,10 @@ public class CitaServiceImpl implements CitaService {
 
     @Override
     public CitaResponse agendarAutonomo(AgendarAutonomoRequest request) {
+        try {
+            adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
 
-        Long usuarioId = obtenerUsuarioIdAutenticado();
+            Long usuarioId = obtenerUsuarioIdAutenticado();
         PacienteResumenDTO pacienteResumenDTO = pacientesApi.buscarPorUsuarioId(usuarioId);
 
         long citasFuturas = citaRepository.countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(pacienteResumenDTO.getId(), "CANCELADA", LocalDate.now());
@@ -510,11 +535,46 @@ public class CitaServiceImpl implements CitaService {
 
         publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_AUTONOMA_CREADA");
 
-        return mapToResponse(guardada, pacienteResumenDTO, medicoResumenDTO);
+            return mapToResponse(guardada, pacienteResumenDTO, medicoResumenDTO);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw conflictoConcurrencia();
+        } catch (DataIntegrityViolationException ex) {
+            throw conflictoSlotOcupado();
+        }
     }
 
     private void publicarCambioAgenda(Long medicoId, LocalDate fecha, Long citaId, String accion) {
         eventPublisher.publishEvent(new AgendaDinamicaChangedEvent(medicoId, fecha, citaId, accion));
+    }
+
+    private void adquirirBloqueoOptimistaAgenda(Long medicoId, LocalDate fecha) {
+        AgendaDiaLock lock = agendaDiaLockRepository.findByMedicoIdAndFecha(medicoId, fecha)
+                .orElseGet(() -> crearLockAgendaDia(medicoId, fecha));
+
+        lock.touch();
+        agendaDiaLockRepository.saveAndFlush(lock);
+    }
+
+    private AgendaDiaLock crearLockAgendaDia(Long medicoId, LocalDate fecha) {
+        AgendaDiaLock lock = new AgendaDiaLock();
+        lock.setMedicoId(medicoId);
+        lock.setFecha(fecha);
+        lock.touch();
+
+        try {
+            return agendaDiaLockRepository.saveAndFlush(lock);
+        } catch (DataIntegrityViolationException ex) {
+            return agendaDiaLockRepository.findByMedicoIdAndFecha(medicoId, fecha)
+                    .orElseThrow(() -> ex);
+        }
+    }
+
+    private BusinessRuleException conflictoConcurrencia() {
+        return new BusinessRuleException("La agenda fue modificada concurrentemente. Intente nuevamente");
+    }
+
+    private BusinessRuleException conflictoSlotOcupado() {
+        return new BusinessRuleException("El horario seleccionado ya esta ocupado");
     }
 
     private LocalTime parseHora(String hora) {

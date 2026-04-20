@@ -1,8 +1,11 @@
 package com.piedrazul.backend.agenda;
 
+import com.piedrazul.backend.agenda.internal.domain.AgendaDiaLock;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
 import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaResponse;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
+import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
+import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.agenda.internal.service.CitaServiceImpl;
 import com.piedrazul.backend.agenda.internal.service.DisponibilidadService;
@@ -22,11 +25,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,6 +46,7 @@ import static org.mockito.Mockito.*;
 class CitaServiceImplTest {
 
     @Mock private CitaRepository citaRepository;
+    @Mock private AgendaDiaLockRepository agendaDiaLockRepository;
     @Mock private DisponibilidadService disponibilidadService;
     @Mock private AuditService auditService;
     @Mock private MedicosApi medicosApi;
@@ -268,5 +275,79 @@ class CitaServiceImplTest {
 
         assertThat(horasLibres).doesNotContain("9:30 AM");
         assertThat(horasLibres).contains("10:30 AM");
+    }
+
+    @Test
+    @DisplayName("RF2 — Si existe conflicto de version en lock de agenda debe informar concurrencia")
+    void crearCitaManual_conflictoOptimistaDebeInformarConcurrencia() {
+        LocalDate fechaFutura = LocalDate.now().plusDays(2);
+        AgendaDiaLock lock = new AgendaDiaLock();
+        lock.setMedicoId(1L);
+        lock.setFecha(fechaFutura);
+
+        when(agendaDiaLockRepository.findByMedicoIdAndFecha(1L, fechaFutura))
+                .thenReturn(Optional.of(lock));
+        when(agendaDiaLockRepository.saveAndFlush(any(AgendaDiaLock.class)))
+                .thenThrow(new ObjectOptimisticLockingFailureException(AgendaDiaLock.class, 1L));
+
+        CrearCitaManualRequest request = new CrearCitaManualRequest(
+                "1234567890",
+                "Ana",
+                "Perez",
+                "3001234567",
+                "FEMENINO",
+                LocalDate.of(1990, 1, 1),
+                "ana@mail.com",
+                1L,
+                "08:00:00",
+                fechaFutura,
+                "Control"
+        );
+
+        assertThatThrownBy(() -> citaService.crearCitaManual(request))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("concurrentemente");
+    }
+
+    @Test
+    @DisplayName("RF2 — Si el slot colisiona por concurrencia DB debe informar ocupado")
+    void crearCitaManual_colisionUnicaDebeInformarOcupado() {
+        LocalDate fecha = LocalDate.now().plusDays(2);
+        AgendaDiaLock lock = new AgendaDiaLock();
+        lock.setMedicoId(1L);
+        lock.setFecha(fecha);
+
+        PacienteResumenDTO paciente = PacienteResumenDTO.builder()
+                .id(10L)
+                .documento("1234567890")
+                .nombres("Ana")
+                .apellidos("Perez")
+                .build();
+
+        when(agendaDiaLockRepository.findByMedicoIdAndFecha(1L, fecha)).thenReturn(Optional.of(lock));
+        when(agendaDiaLockRepository.saveAndFlush(any(AgendaDiaLock.class))).thenReturn(lock);
+        when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoActivo);
+        when(medicosApi.obtenerHorarioAtencion(1L)).thenReturn(horarioEstandar);
+        when(disponibilidadService.estaDisponible(1L, fecha, LocalTime.of(8, 0))).thenReturn(true);
+        when(pacientesApi.obtenerOCrearPorDocumento(any())).thenReturn(paciente);
+        when(citaRepository.save(any(Cita.class))).thenThrow(new DataIntegrityViolationException("unique"));
+
+        CrearCitaManualRequest request = new CrearCitaManualRequest(
+                "1234567890",
+                "Ana",
+                "Perez",
+                "3001234567",
+                "FEMENINO",
+                LocalDate.of(1990, 1, 1),
+                "ana@mail.com",
+                1L,
+                "08:00:00",
+                fecha,
+                "Control"
+        );
+
+        assertThatThrownBy(() -> citaService.crearCitaManual(request))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("ocupado");
     }
 }
