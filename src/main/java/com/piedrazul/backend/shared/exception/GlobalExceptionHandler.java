@@ -1,8 +1,10 @@
 package com.piedrazul.backend.shared.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.AssertionFailure;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -42,6 +44,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
         return buildResponse(HttpStatus.UNAUTHORIZED, "Credenciales inválidas", null);
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY,
+                "La agenda fue modificada concurrentemente. Intente nuevamente",
+                null);
+    }
+
+    @ExceptionHandler(AssertionFailure.class)
+    public ResponseEntity<ErrorResponse> handleHibernateAssertion(AssertionFailure ex) {
+        log.warn("Conflicto de concurrencia detectado por Hibernate", ex);
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Conflicto de concurrencia al agendar. Intente nuevamente",
+                null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

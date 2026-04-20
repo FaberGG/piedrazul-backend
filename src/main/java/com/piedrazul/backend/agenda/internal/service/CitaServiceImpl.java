@@ -23,6 +23,7 @@ import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
 import com.piedrazul.backend.shared.audit.AuditService;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
+import org.hibernate.AssertionFailure;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -259,7 +260,7 @@ public class CitaServiceImpl implements CitaService {
         publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
 
             return mapToResponse(guardada, paciente, medico);
-        } catch (ObjectOptimisticLockingFailureException ex) {
+        } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
             throw conflictoConcurrencia();
         } catch (DataIntegrityViolationException ex) {
             throw conflictoSlotOcupado();
@@ -463,7 +464,7 @@ public class CitaServiceImpl implements CitaService {
         publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_PRIORIDAD_CREADA");
 
             return mapToResponse(guardada, paciente, medico);
-        } catch (ObjectOptimisticLockingFailureException ex) {
+        } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
             throw conflictoConcurrencia();
         } catch (DataIntegrityViolationException ex) {
             throw conflictoSlotOcupado();
@@ -536,7 +537,7 @@ public class CitaServiceImpl implements CitaService {
         publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_AUTONOMA_CREADA");
 
             return mapToResponse(guardada, pacienteResumenDTO, medicoResumenDTO);
-        } catch (ObjectOptimisticLockingFailureException ex) {
+        } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
             throw conflictoConcurrencia();
         } catch (DataIntegrityViolationException ex) {
             throw conflictoSlotOcupado();
@@ -564,8 +565,9 @@ public class CitaServiceImpl implements CitaService {
         try {
             return agendaDiaLockRepository.saveAndFlush(lock);
         } catch (DataIntegrityViolationException ex) {
-            return agendaDiaLockRepository.findByMedicoIdAndFecha(medicoId, fecha)
-                    .orElseThrow(() -> ex);
+            // If another transaction created the same (medico, fecha) row first,
+            // avoid any further query in this persistence context after failed flush.
+            throw new AgendaLockConcurrencyException(ex);
         }
     }
 
@@ -575,6 +577,12 @@ public class CitaServiceImpl implements CitaService {
 
     private BusinessRuleException conflictoSlotOcupado() {
         return new BusinessRuleException("El horario seleccionado ya esta ocupado");
+    }
+
+    private static final class AgendaLockConcurrencyException extends RuntimeException {
+        private AgendaLockConcurrencyException(Throwable cause) {
+            super(cause);
+        }
     }
 
     private LocalTime parseHora(String hora) {
