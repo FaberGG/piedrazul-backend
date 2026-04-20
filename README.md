@@ -40,7 +40,7 @@ El sistema esta organizado por modulos de dominio. Cada modulo expone una fronte
 | --- | --- | --- |
 | `shared` | Capacidades transversales: seguridad JWT, auditoria y excepciones comunes | Sin endpoints directos |
 | `auth` | Login y registro de usuarios | `/auth/login`, `/auth/register/*` |
-| `agenda` | Creacion/consulta de citas y disponibilidad | `/citas/agenda`, `/citas/manual`, `/citas/disponibilidad/*`, `/citas/agenda-dinamica`, `/citas/prioridad`, `/citas/autonomo` |
+| `agenda` | Creacion/consulta de citas y disponibilidad | `/citas/agenda`, `/citas/manual`, `/citas/disponibilidad/*`, `/citas/agenda-dinamica`, `/citas/agenda-dinamica/stream`, `/citas/prioridad`, `/citas/autonomo` |
 | `medicos` | Catalogo de medicos y configuracion de agenda por medico | `/medicos`, `/medicos/{medicoId}/configuracion` |
 | `pacientes` | Consulta y busqueda de pacientes, soporte de autocompletado | `/pacientes`, `/pacientes/{id}`, `/pacientes/buscar` |
 | `reportes` | Reporteria agregada de citas | `/reportes/citas` |
@@ -171,6 +171,7 @@ Base URL: `http://localhost:8080/api/v1`
 | GET | `/citas/disponibilidad/primera` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `PACIENTE`, `ADMIN` | Implementado |
 | GET | `/citas/disponibilidad/primera/global` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `PACIENTE`, `ADMIN` | Implementado |
 | GET | `/citas/agenda-dinamica` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN` | Implementado |
+| GET | `/citas/agenda-dinamica/stream` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN` | Implementado (SSE) |
 | POST | `/citas/prioridad` | `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN` | Implementado |
 
 ### Pacientes

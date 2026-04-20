@@ -319,6 +319,38 @@ Content-Type: application/json
 }
 ```
 
+### `GET /citas/agenda-dinamica/stream`
+
+- Estado: Implementado
+- Auth requerida: Si
+- Roles requeridos: `AGENDADOR`, `MEDICO_TERAPISTA`, `MEDICO`, `ADMIN`
+- Tipo de respuesta: `text/event-stream`
+- Query params esperados:
+
+```json
+{
+  "medicoId": 1,
+  "fecha": "2026-06-10"
+}
+```
+
+- Eventos SSE emitidos:
+  - `connected`: confirma suscripcion.
+  - `agenda-snapshot`: snapshot inicial con la misma estructura de `GET /citas/agenda-dinamica`.
+  - `agenda-updated`: evento de invalidacion cuando cambia agenda del medico/fecha.
+
+- Ejemplo de evento `agenda-updated`:
+
+```json
+{
+  "medicoId": 1,
+  "fecha": "2026-06-10",
+  "citaId": 333,
+  "accion": "CITA_MANUAL_CREADA",
+  "changedAt": "2026-06-10T14:30:00Z"
+}
+```
+
 ### `POST /citas/prioridad`
 
 - Estado: Implementado

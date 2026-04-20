@@ -10,6 +10,7 @@ import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
+import com.piedrazul.backend.agenda.internal.event.AgendaDinamicaChangedEvent;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
@@ -20,6 +21,7 @@ import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
 import com.piedrazul.backend.shared.audit.AuditService;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -65,17 +67,20 @@ public class CitaServiceImpl implements CitaService {
     private final PacientesApi          pacientesApi;
     private final MedicosApi            medicosApi;
     private final AuditService          auditService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public CitaServiceImpl(CitaRepository citaRepository,
                            DisponibilidadService disponibilidadService,
                            PacientesApi pacientesApi,
                            MedicosApi medicosApi,
-                           AuditService auditService) {
+                           AuditService auditService,
+                           ApplicationEventPublisher eventPublisher) {
         this.citaRepository        = citaRepository;
         this.disponibilidadService = disponibilidadService;
         this.pacientesApi          = pacientesApi;
         this.medicosApi            = medicosApi;
         this.auditService          = auditService;
+        this.eventPublisher       = eventPublisher;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -240,6 +245,8 @@ public class CitaServiceImpl implements CitaService {
                 "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}",
                 "N/A"
         );
+
+        publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
 
         return mapToResponse(guardada, paciente, medico);
     }
@@ -435,6 +442,8 @@ public class CitaServiceImpl implements CitaService {
                 "N/A"
         );
 
+        publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_PRIORIDAD_CREADA");
+
         return mapToResponse(guardada, paciente, medico);
     }
 
@@ -499,7 +508,13 @@ public class CitaServiceImpl implements CitaService {
                 "N/A"
         );
 
+        publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_AUTONOMA_CREADA");
+
         return mapToResponse(guardada, pacienteResumenDTO, medicoResumenDTO);
+    }
+
+    private void publicarCambioAgenda(Long medicoId, LocalDate fecha, Long citaId, String accion) {
+        eventPublisher.publishEvent(new AgendaDinamicaChangedEvent(medicoId, fecha, citaId, accion));
     }
 
     private LocalTime parseHora(String hora) {

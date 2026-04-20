@@ -7,12 +7,15 @@ import com.piedrazul.backend.agenda.internal.dto.CitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
+import com.piedrazul.backend.agenda.internal.realtime.AgendaDinamicaSseHub;
 import com.piedrazul.backend.agenda.internal.service.CitaService;
 import com.piedrazul.backend.agenda.internal.service.DisponibilidadService;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -24,10 +27,14 @@ public class CitaController {
 
     private final CitaService citaService;
     private final DisponibilidadService disponibilidadService;
+    private final AgendaDinamicaSseHub agendaDinamicaSseHub;
 
-    public CitaController(CitaService citaService, DisponibilidadService disponibilidadService) {
+    public CitaController(CitaService citaService,
+                          DisponibilidadService disponibilidadService,
+                          AgendaDinamicaSseHub agendaDinamicaSseHub) {
         this.citaService = citaService;
         this.disponibilidadService = disponibilidadService;
+        this.agendaDinamicaSseHub = agendaDinamicaSseHub;
     }
 
     @GetMapping("/agenda")
@@ -81,6 +88,17 @@ public class CitaController {
             @RequestParam Long medicoId,
             @RequestParam LocalDate fecha) {
         return ResponseEntity.ok(citaService.obtenerAgendaDinamica(medicoId, fecha));
+    }
+
+    @GetMapping(value = "/agenda-dinamica/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'ADMIN')")
+    public SseEmitter agendaDinamicaStream(
+            @RequestParam Long medicoId,
+            @RequestParam LocalDate fecha) {
+        SseEmitter emitter = agendaDinamicaSseHub.subscribe(medicoId, fecha);
+        AgendaDinamicaResponse snapshot = citaService.obtenerAgendaDinamica(medicoId, fecha);
+        agendaDinamicaSseHub.sendInitialSnapshot(emitter, snapshot);
+        return emitter;
     }
 
     @PostMapping("/prioridad")
