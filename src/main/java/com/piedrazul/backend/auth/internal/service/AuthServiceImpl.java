@@ -51,13 +51,13 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
 public void registerPaciente(RegisterPacienteRequest request) {
-    if (usuarioRepository.existsByUsername(request.getUsername())) {
+    if (usuarioRepository.existsByUsername(request.getDocumento())) {
         throw new BusinessRuleException("El username ya está en uso");
     }
-    validarPassword(request.getPassword());
+     validarPassword(request.getPassword(),request.getDocumento());
 
     keycloakAdminService.crearUsuario(
-            request.getUsername(),
+            request.getDocumento(),
             request.getCorreo(),
             request.getPassword(),
             "PACIENTE",
@@ -66,7 +66,7 @@ public void registerPaciente(RegisterPacienteRequest request) {
     );
 
     Usuario usuario = Usuario.builder()
-            .username(request.getUsername())
+            .username(request.getDocumento())
             .password(passwordEncoder.encode(request.getPassword()))
             .rol("PACIENTE")
             .build();
@@ -92,7 +92,7 @@ public void registerMedico(RegisterMedicoRequest request) {
     if (usuarioRepository.existsByUsername(request.getUsername())) {
         throw new BusinessRuleException("El username ya está en uso");
     }
-    validarPassword(request.getPassword());
+     validarPassword(request.getPassword(),request.getUsername());
 
     keycloakAdminService.crearUsuario(
             request.getUsername(),
@@ -127,7 +127,7 @@ public void registerAdmin(LoginRequest request) {
     if (usuarioRepository.existsByUsername(request.getUsername())) {
         throw new BusinessRuleException("El username ya está en uso");
     }
-    validarPassword(request.getPassword());
+    validarPassword(request.getPassword(),request.getUsername());
 
     keycloakAdminService.crearUsuario(
             request.getUsername(),
@@ -147,7 +147,7 @@ public void registerAdmin(LoginRequest request) {
     usuarioRepository.save(usuario);
 }
 
-    private void validarPassword(String password) {
+    private void validarPassword(String password, String username) {
     if (password == null || password.length() < 8) {
         throw new BusinessRuleException("La contraseña debe tener al menos 8 caracteres");
     }
@@ -159,6 +159,13 @@ public void registerAdmin(LoginRequest request) {
     }
     if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{}|;':\",./<>?].*")) {
         throw new BusinessRuleException("La contraseña debe contener al menos un carácter especial");
+     }
+    if (password.contains(" ")) {
+        throw new BusinessRuleException("La contraseña no debe contener espacios");
+     }
+    if (username.contains(" ")) {
+        throw new BusinessRuleException("El nombre de usuario no debe contener espacios");
     }
+
 }
 }

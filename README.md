@@ -256,3 +256,235 @@ Documento de respaldo: [`03-requisitos/02-rnf-seguridad.md`](docs/03-requisitos/
 ### 5. Datos
 
 - [`05-datos/01-modelo-datos-y-diccionario.md`](docs/05-datos/01-modelo-datos-y-diccionario.md)
+
+#  Autenticación con Keycloak — Piedra Azul
+
+## Requisitos previos
+
+- Keycloak corriendo en `http://localhost:8180`
+- Realm `piedra-azul` creado
+- Client `piedrazul-backend` configurado
+
+---
+
+## Configuración del Realm
+
+1. Entra a `http://localhost:8180` con usuario `admin` / contraseña `admin`
+2. Selecciona el realm `piedra-azul` en el dropdown superior izquierdo
+
+---
+
+## Configuración del Client
+
+1. Ve a **Clients** → **Create client**
+2. Completa los campos:
+   - **Client ID**: `piedrazul-backend`
+   - **Client type**: `OpenID Connect`
+3. Clic en **Next**
+4. Activa **Client authentication**: ON
+5. En **Authentication flow**, marca únicamente:
+   -  Service accounts roles
+   -  Direct access grants
+6. Clic en **Next** → **Save**
+
+### Asignar permisos al Service Account
+
+1. Ve a la pestaña **Service account roles**
+2. Clic en **Assign role**
+3. Cambia el filtro a **Filter by clients**
+4. Busca `realm-management`
+5. Selecciona `manage-users` → **Assign**
+
+### Copiar el Client Secret
+
+1. Ve a la pestaña **Credentials**
+2. Copia el valor de **Client secret**
+3. Pégalo en `application-dev.yml`:
+
+```yaml
+keycloak:
+  admin:
+    server-url: http://localhost:8180
+    realm: piedra-azul
+    client-id: piedrazul-backend
+    client-secret: TU_SECRET_AQUI
+```
+
+---
+
+## Endpoints de autenticación
+
+### Registrar paciente
+
+```
+POST http://localhost:8080/api/v1/auth/register/paciente
+Content-Type: application/json
+```
+
+```json
+{
+  "username": "usuario123",
+  "password": "Password123!@#",
+  "documento": "1234567890",
+  "nombres": "Juan",
+  "apellidos": "Perez",
+  "celular": "3001234567",
+  "correo": "juan@email.com",
+  "fechaNacimiento": "1990-01-15",
+  "genero": "M"
+}
+```
+
+**Respuesta exitosa:** `201 Created`
+
+### Registrar médico (requiere token de ADMIN)
+
+```
+POST http://localhost:8080/api/v1/auth/register/medico
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "username": "drsmith",
+  "password": "Doctor123!@#",
+  "nombres": "John",
+  "apellidos": "Smith",
+  "especialidad": "Cardiología",
+  "tipo": "ESPECIALISTA"
+}
+```
+
+**Respuesta exitosa:** `201 Created`
+
+### Registrar administrador (requiere token de ADMIN)
+
+```
+POST http://localhost:8080/api/v1/auth/register/admin
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "username": "admin01",
+  "password": "Admin123!@#"
+}
+```
+
+**Respuesta exitosa:** `201 Created`
+
+---
+
+## Login
+
+El login lo maneja Keycloak directamente — el backend no expone un endpoint de login.
+
+# Configuración de Agenda API
+
+Módulo encargado de gestionar la configuración de agendamiento y los días no laborales del sistema.
+
+## Seguridad
+
+Todos los endpoints requieren autenticación con el rol: ADMIN
+
+## Base URL
+
+/api/v1/configuracion/agenda
+
+## Configuración de Agenda
+
+### Obtener configuración actual
+
+GET /api/v1/configuracion/agenda
+
+Response:
+{
+  "ventanaAgendamientoSemanas": 4
+}
+
+### Actualizar ventana de agendamiento
+
+PUT /api/v1/configuracion/agenda/ventana
+
+Request:
+{
+  "ventanaAgendamientoSemanas": 4
+}
+
+Validaciones:
+- Mínimo: 1 semana
+- Máximo: 12 semanas
+
+Response:
+{
+  "ventanaAgendamientoSemanas": 4
+}
+
+## Días No Laborales
+
+### Listar días no laborales
+
+GET /api/v1/configuracion/agenda/dias-no-laborales
+
+Response:
+[
+  {
+    "id": 1,
+    "fecha": "2026-01-01",
+    "descripcion": "Año Nuevo"
+  }
+]
+
+### Agregar día no laboral
+
+POST /api/v1/configuracion/agenda/dias-no-laborales
+
+Request:
+{
+  "fecha": "2026-01-01",
+  "descripcion": "Año Nuevo"
+}
+
+Response:
+{
+  "id": 1,
+  "fecha": "2026-01-01",
+  "descripcion": "Año Nuevo"
+}
+
+### Eliminar día no laboral
+
+DELETE /api/v1/configuracion/agenda/dias-no-laborales/{id}
+
+Response:
+204 No Content
+
+### Importar festivos por año
+
+## DTO: FestivoNager
+
+Representa la estructura de un festivo obtenido desde una API externa (por ejemplo, Nager.Date).
+
+### Estructura
+
+```json
+{
+  "date": "2026-01-01",
+  "localName": "Año Nuevo",
+  "name": "New Year's Day"
+}
+
+POST /api/v1/configuracion/agenda/dias-no-laborales/importar-festivos?anio=2026
+
+Response:
+[
+  {
+    "id": 1,
+    "fecha": "2026-01-01",
+    "descripcion": "Año Nuevo"
+  }
+]
+
+// 

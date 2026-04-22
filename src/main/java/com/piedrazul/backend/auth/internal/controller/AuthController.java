@@ -23,7 +23,7 @@ public class AuthController {
         this.authService = authService;
     }
 
-    // ← /login eliminado, Keycloak lo maneja
+    // login eliminado, Keycloak lo maneja
 
     @PostMapping("/register/paciente")
     public ResponseEntity<Void> registerPaciente(@Valid @RequestBody RegisterPacienteRequest request) {
