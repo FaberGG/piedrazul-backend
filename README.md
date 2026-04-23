@@ -486,5 +486,31 @@ Response:
     "descripcion": "Año Nuevo"
   }
 ]
+## 1. Levantar los contenedores
 
-// 
+```bash
+
+docker compose up -d
+```
+
+Verifica que estén corriendo:
+
+```bash
+docker ps
+```
+
+Deben aparecer `piedrazul_db`, `piedrazul_keycloak`, `piedrazul_pgadmin`.
+
+#### Asignar permisos al Service Account
+
+**Service account roles** → **Assign role** → Filter by clients → `realm-management` → asigna:
+
+- `manage-users`
+- `manage-realm`
+- `view-users`
+
+#### Copiar el Client Secret
+
+**Credentials** → copia el **Client secret**.
+
+---
