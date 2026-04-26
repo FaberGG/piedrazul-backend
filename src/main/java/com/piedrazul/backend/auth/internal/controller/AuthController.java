@@ -42,6 +42,7 @@ public class AuthController {
         return ResponseEntity.status(201).body(authService.registerMedico(request));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/register/admin")
     public ResponseEntity<AuthResponse> registerAdmin(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.status(201).body(authService.registerAdmin(request));
