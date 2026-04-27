@@ -5,7 +5,7 @@
 Flujo disponible hoy:
 
 1. `POST /auth/register/paciente` (si no tiene cuenta).
-2. `POST /auth/login`.
+2. Login en Keycloak (obtencion de `access_token`).
 3. `GET /medicos` para explorar profesionales.
 4. `GET /citas/disponibilidad/primera/global` para recomendacion inicial.
 
@@ -17,7 +17,7 @@ Flujo objetivo (RF3, pendiente de cierre):
 
 Flujo operativo principal:
 
-1. `POST /auth/login`.
+1. Login en Keycloak (obtencion de `access_token`).
 2. `GET /medicos` para seleccionar profesional.
 3. `GET /citas/agenda` para consultar agenda diaria.
 4. `GET /pacientes/buscar?documento=...` para sugerencias por documento.
@@ -30,7 +30,7 @@ Flujo operativo principal:
 
 Flujo tipico:
 
-1. `POST /auth/login`.
+1. Login en Keycloak (obtencion de `access_token`).
 2. `GET /citas/agenda` para ver agenda por fecha.
 3. `GET /citas/agenda-dinamica` para visualizacion operativa avanzada.
 4. `GET /pacientes/{id}` para detalle de paciente asociado.
@@ -40,7 +40,7 @@ Flujo tipico:
 
 Flujo de configuracion y gobierno:
 
-1. `POST /auth/login`.
+1. Login en Keycloak (obtencion de `access_token` con rol `ADMIN`).
 2. `POST /auth/register/medico` para alta de profesional.
 3. `PUT /medicos/{medicoId}/configuracion` para configurar agenda por medico.
 4. `GET /medicos/{medicoId}/configuracion` para verificar capacidad configurada.

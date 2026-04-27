@@ -123,7 +123,7 @@ El backend usa un formato unificado de error.
 | HTTP Status | Accion recomendada en frontend |
 | --- | --- |
 | `400` | Mostrar errores inline por campo usando `errors`. Si una key coincide con un control del formulario, pintar mensaje debajo del input. Usar `message` como fallback general. |
-| `401` | Limpiar sesion y redirigir a login. Si el error viene de `/auth/login`, mostrar `Credenciales inválidas`. Si viene de otro endpoint, tratarlo como sesion expirada/no autorizada. |
+| `401` | Limpiar sesion y redirigir a login de Keycloak. Tratarlo como sesion expirada/no autorizada. |
 | `404` | Mostrar toast o mensaje en pantalla con `message`. No redirigir automaticamente, salvo que la vista dependa del recurso inexistente. |
 | `422` | Mostrar toast o mensaje contextual cerca de la accion. El `message` ya es legible y debe mostrarse tal cual. |
 | `500` | Mostrar mensaje generico: `Ocurrió un error inesperado, intenta de nuevo`. No mostrar detalles tecnicos. |
@@ -187,10 +187,9 @@ Notas UI:
 
 | Endpoint relacionado | HTTP Status | Mensaje exacto (`message`) | Cuando ocurre | Sugerencia de presentacion UI |
 | --- | --- | --- | --- | --- |
-| `POST /api/v1/auth/login` | `401` | `Credenciales inválidas` | Username/password incorrectos. | Mostrar mensaje en formulario de login sin redireccion. |
-| Endpoints autenticados (cualquiera fuera de login) | `401` | `No autorizado` o mensaje de autorizacion del backend | Token ausente, invalido o expirado. | Limpiar sesion y redirigir a login. |
+| Login en Keycloak (`/realms/{realm}/protocol/openid-connect/token`) | `401` | Error de credenciales del IdP | Username/password incorrectos en autenticacion externa. | Mostrar mensaje en formulario de login y no llamar backend Spring. |
+| Endpoints autenticados del backend | `401` | `No autorizado` o mensaje de autorizacion del backend | Token ausente, invalido o expirado. | Limpiar sesion y redirigir a login de Keycloak. |
 | Flujos de seguridad (UserDetailsService) | `404` | `Usuario no encontrado: {username}` | Username del contexto/token no existe en BD. | Forzar logout y redirigir a login. |
-| `POST /api/v1/auth/login` | `422` | `Usuario inactivo` | Usuario existe pero no puede iniciar sesion por estado. | Mensaje en login con recomendacion de contacto soporte. |
 | `POST /api/v1/auth/register/paciente` `POST /api/v1/auth/register/medico` `POST /api/v1/auth/register/admin` | `422` | `El username ya está en uso` | Registro con username repetido. | Error inline en campo username. |
 | `POST /api/v1/auth/register/paciente` | `422` | `El documento ya está registrado` | Documento ya existe en sistema. | Error inline en documento + sugerir recuperar cuenta. |
 
@@ -214,8 +213,7 @@ Se recomienda implementar un interceptor HTTP global con esta logica:
    - inyectar mensajes en los controles del formulario activo que coincidan por nombre,
    - usar `message` como fallback general.
 4. Si `status === 401`:
-   - si endpoint es distinto de `/auth/login`, limpiar sesion y redirigir a login,
-   - si endpoint es `/auth/login`, mostrar `Credenciales inválidas` en la vista de login.
+   - limpiar sesion y redirigir a login de Keycloak.
 5. Si `status === 422` o `status === 404`:
    - mostrar `message` en toast/notificacion.
 6. Si `status === 500`:

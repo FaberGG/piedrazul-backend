@@ -30,7 +30,7 @@ Capas tecnicas principales:
 3. Repository
 4. Base de datos
 
-Tecnologias base: Java 17, Spring Boot, Spring Security (JWT), Spring Data JPA, PostgreSQL (dev), H2 (test), Spring Modulith.
+Tecnologias base: Java 17, Spring Boot, Spring Security (OAuth2 Resource Server + JWT), Spring Data JPA, PostgreSQL (dev), H2 (test), Spring Modulith, Keycloak.
 
 ## Modulos del monolito modular
 
@@ -38,8 +38,8 @@ El sistema esta organizado por modulos de dominio. Cada modulo expone una fronte
 
 | Modulo | Responsabilidad principal | Endpoints principales |
 | --- | --- | --- |
-| `shared` | Capacidades transversales: seguridad JWT, auditoria y excepciones comunes | Sin endpoints directos |
-| `auth` | Login y registro de usuarios | `/auth/login`, `/auth/register/*` |
+| `shared` | Capacidades transversales: seguridad, auditoria y excepciones comunes | Sin endpoints directos |
+| `auth` | Registro de usuarios y sincronizacion con Keycloak | `/auth/register/*` |
 | `agenda` | Creacion/consulta de citas y disponibilidad | `/citas/agenda`, `/citas/manual`, `/citas/disponibilidad/*`, `/citas/agenda-dinamica`, `/citas/prioridad`, `/citas/autonomo` |
 | `medicos` | Catalogo de medicos y configuracion de agenda por medico | `/medicos`, `/medicos/{medicoId}/configuracion` |
 | `pacientes` | Consulta y busqueda de pacientes, soporte de autocompletado | `/pacientes`, `/pacientes/{id}`, `/pacientes/buscar` |
@@ -126,7 +126,7 @@ Documento de respaldo: [`REQUISITOS-FUNCIONALES.md`](REQUISITOS-FUNCIONALES.md)
 | RF-03 Agendar cita autonoma paciente | PENDIENTE | Endpoint definido; servicio `agendarAutonomo` sin implementar |
 | RF-04 Configuracion parametros del sistema | PARCIAL | Configuracion por medico implementada; ventana global no centralizada |
 | RF-05 Gestion de usuarios | PARCIAL | Flujos de registro existen en `auth`; gestion administrativa integral no centralizada en un modulo dedicado |
-| RF-06 Autenticacion y control de acceso | COMPLETO | JWT + RBAC por rol en controladores |
+| RF-06 Autenticacion y control de acceso | COMPLETO | Keycloak + validacion JWT en Resource Server + RBAC por rol |
 | RF-07 Gestion de medicos/terapistas | PARCIAL | Listado y configuracion de agenda por medico implementados |
 | RF-08 Re-agendamiento de citas | PENDIENTE | Sin endpoint dedicado de reagendamiento |
 | RF-09 Exportacion de citas | PENDIENTE | Sin endpoint CSV implementado |
@@ -151,14 +151,13 @@ Base URL: `http://localhost:8080/api/v1`
 
 | Metodo | Endpoint | Estado |
 | --- | --- | --- |
-| POST | `/auth/login` | Implementado |
 | POST | `/auth/register/paciente` | Implementado |
-| POST | `/auth/register/admin` | Implementado |
 
 ### Auth
 
 | Metodo | Endpoint | Roles | Estado |
 | --- | --- | --- | --- |
+| POST | `/auth/register/admin` | `ADMIN` | Implementado |
 | POST | `/auth/register/medico` | `ADMIN` | Implementado |
 
 ### Agenda
@@ -195,6 +194,17 @@ Base URL: `http://localhost:8080/api/v1`
 | --- | --- | --- | --- |
 | GET | `/reportes/citas` | `AGENDADOR`, `ADMIN` | Implementado |
 
+### Configuracion de Agenda
+
+| Metodo | Endpoint | Roles | Estado |
+| --- | --- | --- | --- |
+| GET | `/configuracion/agenda` | `ADMIN` | Implementado |
+| PUT | `/configuracion/agenda/ventana` | `ADMIN` | Implementado |
+| GET | `/configuracion/agenda/dias-no-laborales` | `ADMIN` | Implementado |
+| POST | `/configuracion/agenda/dias-no-laborales` | `ADMIN` | Implementado |
+| DELETE | `/configuracion/agenda/dias-no-laborales/{id}` | `ADMIN` | Implementado |
+| POST | `/configuracion/agenda/dias-no-laborales/importar-festivos?anio=YYYY` | `ADMIN` | Implementado |
+
 Nota:
 
 Aunque existe endpoint expuesto para `POST /citas/autonomo`, el metodo de servicio asociado aun se encuentra en estado pendiente de implementacion completa.
@@ -222,9 +232,9 @@ Documento de respaldo: [`05-datos/01-modelo-datos-y-diccionario.md`](docs/05-dat
 
 ## Seguridad y calidad (clave)
 
-- Autenticacion stateless con JWT.
+- Keycloak como proveedor de identidad y login.
+- Backend como Resource Server validando JWT por `issuer-uri`.
 - RBAC por roles con `@PreAuthorize`.
-- Hash de credenciales con BCrypt.
 - Auditoria operativa en eventos criticos.
 
 Riesgo documental/tecnico a resolver: coexistencia de `ADMIN` y `ADMINISTRADOR`; se recomienda estandarizar.
@@ -252,265 +262,38 @@ Documento de respaldo: [`03-requisitos/02-rnf-seguridad.md`](docs/03-requisitos/
 
 - [`04-api/01-endpoints-implementados.md`](docs/04-api/01-endpoints-implementados.md)
 - [`04-api/02-flujos-por-rol.md`](docs/04-api/02-flujos-por-rol.md)
+- [`04-api/05-keycloak-autenticacion.md`](docs/04-api/05-keycloak-autenticacion.md)
+
+## Flujo recomendado del equipo (dev)
+
+1. Copiar la plantilla de variables locales:
+
+```bash
+cp .env.dev.example .env.dev
+```
+
+2. Levantar infraestructura local:
+
+```bash
+docker compose --env-file .env.dev up -d
+docker ps
+```
+
+3. Ejecutar el backend (cargando variables de `.env.dev` en la sesion actual):
+
+```bash
+set -a
+source .env.dev
+set +a
+./mvnw spring-boot:run
+```
+
+Notas:
+
+- El endpoint de login lo expone Keycloak, no el backend Spring.
+- La guia detallada de Keycloak se mantiene en `docs/04-api/05-keycloak-autenticacion.md`.
+- El detalle de contratos HTTP esta en `docs/04-api/01-endpoints-implementados.md`.
 
 ### 5. Datos
 
 - [`05-datos/01-modelo-datos-y-diccionario.md`](docs/05-datos/01-modelo-datos-y-diccionario.md)
-
-#  Autenticación con Keycloak — Piedra Azul
-
-## Requisitos previos
-
-- Keycloak corriendo en `http://localhost:8180`
-- Realm `piedra-azul` creado
-- Client `piedrazul-backend` configurado
-
----
-
-## Configuración del Realm
-
-1. Entra a `http://localhost:8180` con usuario `admin` / contraseña `admin`
-2. Selecciona el realm `piedra-azul` en el dropdown superior izquierdo
-
----
-
-## Configuración del Client
-
-1. Ve a **Clients** → **Create client**
-2. Completa los campos:
-   - **Client ID**: `piedrazul-backend`
-   - **Client type**: `OpenID Connect`
-3. Clic en **Next**
-4. Activa **Client authentication**: ON
-5. En **Authentication flow**, marca únicamente:
-   -  Service accounts roles
-   -  Direct access grants
-6. Clic en **Next** → **Save**
-
-### Asignar permisos al Service Account
-
-1. Ve a la pestaña **Service account roles**
-2. Clic en **Assign role**
-3. Cambia el filtro a **Filter by clients**
-4. Busca `realm-management`
-5. Selecciona `manage-users` → **Assign**
-
-### Copiar el Client Secret
-
-1. Ve a la pestaña **Credentials**
-2. Copia el valor de **Client secret**
-3. Pégalo en `application-dev.yml`:
-
-```yaml
-keycloak:
-  admin:
-    server-url: http://localhost:8180
-    realm: piedra-azul
-    client-id: piedrazul-backend
-    client-secret: TU_SECRET_AQUI
-```
-
----
-
-## Endpoints de autenticación
-
-### Registrar paciente
-
-```
-POST http://localhost:8080/api/v1/auth/register/paciente
-Content-Type: application/json
-```
-
-```json
-{
-  "username": "usuario123",
-  "password": "Password123!@#",
-  "documento": "1234567890",
-  "nombres": "Juan",
-  "apellidos": "Perez",
-  "celular": "3001234567",
-  "correo": "juan@email.com",
-  "fechaNacimiento": "1990-01-15",
-  "genero": "M"
-}
-```
-
-**Respuesta exitosa:** `201 Created`
-
-### Registrar médico (requiere token de ADMIN)
-
-```
-POST http://localhost:8080/api/v1/auth/register/medico
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-```json
-{
-  "username": "drsmith",
-  "password": "Doctor123!@#",
-  "nombres": "John",
-  "apellidos": "Smith",
-  "especialidad": "Cardiología",
-  "tipo": "ESPECIALISTA"
-}
-```
-
-**Respuesta exitosa:** `201 Created`
-
-### Registrar administrador (requiere token de ADMIN)
-
-```
-POST http://localhost:8080/api/v1/auth/register/admin
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-```json
-{
-  "username": "admin01",
-  "password": "Admin123!@#"
-}
-```
-
-**Respuesta exitosa:** `201 Created`
-
----
-
-## Login
-
-El login lo maneja Keycloak directamente — el backend no expone un endpoint de login.
-
-# Configuración de Agenda API
-
-Módulo encargado de gestionar la configuración de agendamiento y los días no laborales del sistema.
-
-## Seguridad
-
-Todos los endpoints requieren autenticación con el rol: ADMIN
-
-## Base URL
-
-/api/v1/configuracion/agenda
-
-## Configuración de Agenda
-
-### Obtener configuración actual
-
-GET /api/v1/configuracion/agenda
-
-Response:
-{
-  "ventanaAgendamientoSemanas": 4
-}
-
-### Actualizar ventana de agendamiento
-
-PUT /api/v1/configuracion/agenda/ventana
-
-Request:
-{
-  "ventanaAgendamientoSemanas": 4
-}
-
-Validaciones:
-- Mínimo: 1 semana
-- Máximo: 12 semanas
-
-Response:
-{
-  "ventanaAgendamientoSemanas": 4
-}
-
-## Días No Laborales
-
-### Listar días no laborales
-
-GET /api/v1/configuracion/agenda/dias-no-laborales
-
-Response:
-[
-  {
-    "id": 1,
-    "fecha": "2026-01-01",
-    "descripcion": "Año Nuevo"
-  }
-]
-
-### Agregar día no laboral
-
-POST /api/v1/configuracion/agenda/dias-no-laborales
-
-Request:
-{
-  "fecha": "2026-01-01",
-  "descripcion": "Año Nuevo"
-}
-
-Response:
-{
-  "id": 1,
-  "fecha": "2026-01-01",
-  "descripcion": "Año Nuevo"
-}
-
-### Eliminar día no laboral
-
-DELETE /api/v1/configuracion/agenda/dias-no-laborales/{id}
-
-Response:
-204 No Content
-
-### Importar festivos por año
-
-## DTO: FestivoNager
-
-Representa la estructura de un festivo obtenido desde una API externa (por ejemplo, Nager.Date).
-
-### Estructura
-
-```json
-{
-  "date": "2026-01-01",
-  "localName": "Año Nuevo",
-  "name": "New Year's Day"
-}
-
-POST /api/v1/configuracion/agenda/dias-no-laborales/importar-festivos?anio=2026
-
-Response:
-[
-  {
-    "id": 1,
-    "fecha": "2026-01-01",
-    "descripcion": "Año Nuevo"
-  }
-]
-## 1. Levantar los contenedores
-
-```bash
-
-docker compose up -d
-```
-
-Verifica que estén corriendo:
-
-```bash
-docker ps
-```
-
-Deben aparecer `piedrazul_db`, `piedrazul_keycloak`, `piedrazul_pgadmin`.
-
-#### Asignar permisos al Service Account
-
-**Service account roles** → **Assign role** → Filter by clients → `realm-management` → asigna:
-
-- `manage-users`
-- `manage-realm`
-- `view-users`
-
-#### Copiar el Client Secret
-
-**Credentials** → copia el **Client secret**.
-
----

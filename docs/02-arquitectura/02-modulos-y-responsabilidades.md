@@ -13,8 +13,8 @@ Este es el documento canonico para entender como se organizan los modulos del ba
 
 | Modulo | Responsabilidad principal | Endpoints principales |
 | --- | --- | --- |
-| `shared` | Seguridad JWT, auditoria y excepciones comunes | Sin endpoints directos |
-| `auth` | Login y registro de usuarios | `POST /api/v1/auth/login`, `POST /api/v1/auth/register/*` |
+| `shared` | Seguridad Resource Server, auditoria y excepciones comunes | Sin endpoints directos |
+| `auth` | Registro de usuarios y sincronizacion con Keycloak | `POST /api/v1/auth/register/*` |
 | `agenda` | Citas manuales, agenda por medico/fecha, disponibilidad y agenda dinamica | `GET /api/v1/citas/agenda`, `POST /api/v1/citas/manual`, `GET /api/v1/citas/disponibilidad/primera`, `GET /api/v1/citas/disponibilidad/primera/global`, `GET /api/v1/citas/agenda-dinamica`, `POST /api/v1/citas/prioridad`, `POST /api/v1/citas/autonomo` |
 | `medicos` | Catalogo de medicos y configuracion de agenda por medico | `GET /api/v1/medicos`, `GET /api/v1/medicos/{medicoId}/configuracion`, `PUT /api/v1/medicos/{medicoId}/configuracion` |
 | `pacientes` | Consulta de pacientes, busqueda por documento y soporte de autocompletado | `GET /api/v1/pacientes`, `GET /api/v1/pacientes/{id}`, `GET /api/v1/pacientes/buscar` |
@@ -24,13 +24,13 @@ Este es el documento canonico para entender como se organizan los modulos del ba
 
 ### `shared`
 
-- `SecurityConfig`, `JwtAuthFilter`, `JwtService`
+- `SecurityConfig` (validacion JWT y conversion de roles)
 - `AuditService`
 - `BusinessRuleException`, `ResourceNotFoundException`
 
 ### `auth`
 
-- Gestiona autenticacion y emision de JWT.
+- Login delegado a Keycloak (el backend no emite tokens).
 - Registra usuarios por rol (`PACIENTE`, `ADMIN`, `MEDICO`).
 
 ### `agenda`

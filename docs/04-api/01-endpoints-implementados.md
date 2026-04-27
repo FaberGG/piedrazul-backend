@@ -29,32 +29,7 @@ Content-Type: application/json
 
 ## Auth
 
-### `POST /auth/login`
-
-- Estado: Implementado
-- Auth requerida: No
-- Query params: No aplica
-- Path params: No aplica
-- Body:
-
-```json
-{
-  "username": "maria.gonzalez",
-  "password": "Password123"
-}
-```
-
-- Response `200`:
-
-```json
-{
-  "token": "eyJ...",
-  "userId": 42,
-  "username": "maria.gonzalez",
-  "rol": "AGENDADOR",
-  "expiresIn": 86400
-}
-```
+> Nota: el login no lo expone Spring. El token se obtiene en Keycloak. Ver guia en [`05-keycloak-autenticacion.md`](05-keycloak-autenticacion.md).
 
 ### `POST /auth/register/paciente`
 
@@ -66,7 +41,6 @@ Content-Type: application/json
 
 ```json
 {
-  "username": "paciente.demo",
   "password": "Password123",
   "documento": "1234567890",
   "nombres": "Juan Carlos",
@@ -78,22 +52,13 @@ Content-Type: application/json
 }
 ```
 
-- Response `201`:
-
-```json
-{
-  "token": "eyJ...",
-  "userId": 100,
-  "username": "paciente.demo",
-  "rol": "PACIENTE",
-  "expiresIn": 86400
-}
-```
+- Response `201`: sin cuerpo (`ResponseEntity<Void>`).
 
 ### `POST /auth/register/admin`
 
 - Estado: Implementado
-- Auth requerida: No (estado actual)
+- Auth requerida: Si
+- Roles requeridos: `ADMIN`
 - Query params: No aplica
 - Path params: No aplica
 - Body:
@@ -105,17 +70,7 @@ Content-Type: application/json
 }
 ```
 
-- Response `201`:
-
-```json
-{
-  "token": "eyJ...",
-  "userId": 1,
-  "username": "admin.demo",
-  "rol": "ADMIN",
-  "expiresIn": 86400
-}
-```
+- Response `201`: sin cuerpo (`ResponseEntity<Void>`).
 
 ### `POST /auth/register/medico`
 
@@ -137,17 +92,7 @@ Content-Type: application/json
 }
 ```
 
-- Response `201`:
-
-```json
-{
-  "token": "eyJ...",
-  "userId": 200,
-  "username": "medico.demo",
-  "rol": "MEDICO",
-  "expiresIn": 86400
-}
-```
+- Response `201`: sin cuerpo (`ResponseEntity<Void>`).
 
 ## Agenda
 
@@ -614,6 +559,108 @@ Content-Type: application/json
   "citasProgramadas": 12,
   "porcentajeOcupacion": 0.0
 }
+```
+
+## Configuracion de Agenda
+
+### `GET /configuracion/agenda`
+
+- Estado: Implementado
+- Auth requerida: Si
+- Rol requerido: `ADMIN`
+- Response `200` (ejemplo):
+
+```json
+{
+  "ventanaAgendamientoSemanas": 4
+}
+```
+
+### `PUT /configuracion/agenda/ventana`
+
+- Estado: Implementado
+- Auth requerida: Si
+- Rol requerido: `ADMIN`
+- Body:
+
+```json
+{
+  "ventanaAgendamientoSemanas": 4
+}
+```
+
+- Validaciones clave: minimo 1 semana, maximo 12 semanas.
+- Response `200` (ejemplo):
+
+```json
+{
+  "ventanaAgendamientoSemanas": 4
+}
+```
+
+### `GET /configuracion/agenda/dias-no-laborales`
+
+- Estado: Implementado
+- Auth requerida: Si
+- Rol requerido: `ADMIN`
+- Response `200` (ejemplo):
+
+```json
+[
+  {
+    "id": 1,
+    "fecha": "2026-01-01",
+    "descripcion": "Anio Nuevo"
+  }
+]
+```
+
+### `POST /configuracion/agenda/dias-no-laborales`
+
+- Estado: Implementado
+- Auth requerida: Si
+- Rol requerido: `ADMIN`
+- Body:
+
+```json
+{
+  "fecha": "2026-01-01",
+  "descripcion": "Anio Nuevo"
+}
+```
+
+- Response `201` (ejemplo):
+
+```json
+{
+  "id": 1,
+  "fecha": "2026-01-01",
+  "descripcion": "Anio Nuevo"
+}
+```
+
+### `DELETE /configuracion/agenda/dias-no-laborales/{id}`
+
+- Estado: Implementado
+- Auth requerida: Si
+- Rol requerido: `ADMIN`
+- Response `204`: sin cuerpo.
+
+### `POST /configuracion/agenda/dias-no-laborales/importar-festivos?anio=YYYY`
+
+- Estado: Implementado
+- Auth requerida: Si
+- Rol requerido: `ADMIN`
+- Response `200` (ejemplo):
+
+```json
+[
+  {
+    "id": 1,
+    "fecha": "2026-01-01",
+    "descripcion": "Anio Nuevo"
+  }
+]
 ```
 
 ## Nota de mantenimiento
