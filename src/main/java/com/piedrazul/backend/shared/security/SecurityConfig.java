@@ -4,27 +4,31 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoders;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtDecoders;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.jwt.Jwt;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -38,10 +42,10 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
                 .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
@@ -67,17 +71,53 @@ public class SecurityConfig {
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
-            if (realmAccess == null || !realmAccess.containsKey("roles")) {
-                return List.of();
-            }
-            @SuppressWarnings("unchecked")
-            List<String> roles = (List<String>) realmAccess.get("roles");
+            Set<String> roles = extraerRoles(jwt);
             return roles.stream()
+                    .map(role -> role.startsWith("ROLE_") ? role.substring(5) : role)
+                    .map(role -> role.trim())
+                    .filter(role -> !role.isEmpty())
+                    .map(role -> role.toUpperCase(Locale.ROOT))
                     .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
                     .collect(Collectors.toList());
         });
         return converter;
+    }
+
+    private Set<String> extraerRoles(Jwt jwt) {
+        Set<String> roles = new LinkedHashSet<>();
+
+        agregarRoles(roles, jwt.getClaim("roles"));
+
+        Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
+        if (realmAccess != null) {
+            agregarRoles(roles, realmAccess.get("roles"));
+        }
+
+        Map<String, Object> resourceAccess = jwt.getClaimAsMap("resource_access");
+        if (resourceAccess != null) {
+            for (Object clientData : resourceAccess.values()) {
+                if (clientData instanceof Map<?, ?> clientMap) {
+                    agregarRoles(roles, clientMap.get("roles"));
+                }
+            }
+        }
+
+        return roles;
+    }
+
+    private void agregarRoles(Set<String> sink, Object claimValue) {
+        if (claimValue instanceof String role && !role.isBlank()) {
+            sink.add(role);
+            return;
+        }
+
+        if (claimValue instanceof Collection<?> values) {
+            for (Object value : values) {
+                if (value instanceof String role && !role.isBlank()) {
+                    sink.add(role);
+                }
+            }
+        }
     }
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -105,9 +145,11 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
+
     @Bean
-    public JwtDecoder jwtDecoder() {
-        return JwtDecoders.fromIssuerLocation("http://localhost:8180/realms/piedra-azul");
+    public JwtDecoder jwtDecoder(
+            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri) {
+        return JwtDecoders.fromIssuerLocation(issuerUri);
     }
 
 }

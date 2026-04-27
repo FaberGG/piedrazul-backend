@@ -1,10 +1,8 @@
 /**
- * Paquete expuesto del módulo SHARED — seguridad y JWT.
+ * Paquete expuesto del módulo SHARED — seguridad.
  *
  * Tipos públicos:
- *  - JwtService     → generación y validación de tokens JWT
- *  - JwtAuthFilter  → filtro de autenticación HTTP
- *  - SecurityConfig → configuración de Spring Security
+ *  - SecurityConfig → configuración de Spring Security + OAuth2 Resource Server
  */
 @org.springframework.modulith.NamedInterface("security")
 package com.piedrazul.backend.shared.security;

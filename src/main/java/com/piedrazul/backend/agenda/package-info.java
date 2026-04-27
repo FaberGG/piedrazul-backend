@@ -13,6 +13,7 @@
  */
 @org.springframework.modulith.ApplicationModule(displayName = "Agenda",
         allowedDependencies = {
+                "auth::api",
                 "medicos::api",
                 "medicos::api-dto",
                 "pacientes::api",

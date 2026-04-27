@@ -3,6 +3,7 @@ package com.piedrazul.backend.auth.api;
 import com.piedrazul.backend.auth.api.dto.UsuarioInfoDto;
 
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * ══════════════════════════════════════════════════════════════
@@ -20,7 +21,9 @@ public interface AuthApi {
 
     Optional<UsuarioInfoDto> findByUsername(String username);
 
-    Optional<UsuarioInfoDto> findById(Long usuarioId); // ← nuevo
+    Optional<UsuarioInfoDto> findById(UUID usuarioId);
 
-    boolean existeUsuarioActivo(Long usuarioId);
+    Optional<UsuarioInfoDto> findByKeycloakId(String keycloakId);
+
+    boolean existeUsuarioActivo(UUID usuarioId);
 }

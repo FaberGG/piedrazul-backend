@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 /**
  * DTO publico para registrar medico vinculado a un usuario existente.
  */
@@ -14,7 +16,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RegistroMedicoDTO {
 
-    private Long usuarioId;
+    private UUID usuarioId;
     private String nombres;
     private String apellidos;
     private String especialidad;

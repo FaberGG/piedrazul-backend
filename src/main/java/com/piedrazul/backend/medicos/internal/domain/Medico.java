@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalTime;
+import java.util.UUID;
 
 @Entity(name = "MedicosPaciente")
 @Table(name = "medicos")
@@ -18,7 +19,7 @@ public class Medico {
     private Long id;
 
     @Column(name = "usuario_id", nullable = false, unique = true)
-    private Long usuarioId;
+    private UUID usuarioId;
 
     @Column(nullable = false, length = 100)
     private String nombres;

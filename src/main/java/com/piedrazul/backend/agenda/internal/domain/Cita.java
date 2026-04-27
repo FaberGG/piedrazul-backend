@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.UUID;
 
 /**
  * Entidad Cita médica.
@@ -54,7 +55,7 @@ public class Cita {
     private String observaciones;
 
     @Column(name = "creado_por")
-    private Long creadoPor;
+    private UUID creadoPor;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

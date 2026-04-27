@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface PacientesRepository extends JpaRepository<Paciente, Long> {
@@ -17,7 +18,7 @@ public interface PacientesRepository extends JpaRepository<Paciente, Long> {
 
     boolean existsByDocumento(String documento);
 
-    Optional<Paciente> findByUsuarioId(long usuarioId);
+    Optional<Paciente> findByUsuarioId(UUID usuarioId);
 
     List<Paciente> findByDocumentoStartingWithOrderByDocumentoAsc(String documento, Pageable pageable);
 }

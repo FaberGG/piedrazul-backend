@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity(name = "PacientesPaciente")
 @Table(
@@ -24,7 +25,7 @@ public class Paciente {
     private Long id;
 
     @Column(name = "usuario_id", unique = true) // ← solo referencia, sin @OneToOne
-    private Long usuarioId;
+    private UUID usuarioId;
 
     @Column(nullable = false, unique = true, length = 20)
     private String documento;

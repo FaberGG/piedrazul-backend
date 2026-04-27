@@ -26,14 +26,14 @@ public class MedicoController {
     private final MedicosFacade medicosFacade;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'PACIENTE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'PACIENTE', 'ADMIN')")
     public ResponseEntity<List<MedicoListadoResponse>> listarMedicosActivos(
             @RequestParam(required = false) String especialidad) {
         return ResponseEntity.ok(medicosFacade.listarMedicosActivos(especialidad));
     }
 
     @GetMapping("/{medicoId}/configuracion")
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'PACIENTE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'PACIENTE', 'ADMIN')")
     public ResponseEntity<ConfiguracionAgendaMedicoResponse> obtenerConfiguracionAgenda(
             @PathVariable Long medicoId) {
         return ResponseEntity.ok(medicosFacade.obtenerConfiguracionAgenda(medicoId));

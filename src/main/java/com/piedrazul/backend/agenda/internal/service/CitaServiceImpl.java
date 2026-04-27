@@ -11,6 +11,7 @@ import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
+import com.piedrazul.backend.auth.api.AuthApi;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
 import com.piedrazul.backend.medicos.api.dto.MedicoResumenDTO;
@@ -22,6 +23,7 @@ import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +38,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Implementación del servicio de citas (módulo AGENDA).
@@ -64,17 +67,20 @@ public class CitaServiceImpl implements CitaService {
     private final DisponibilidadService disponibilidadService;
     private final PacientesApi          pacientesApi;
     private final MedicosApi            medicosApi;
+    private final AuthApi               authApi;
     private final AuditService          auditService;
 
     public CitaServiceImpl(CitaRepository citaRepository,
                            DisponibilidadService disponibilidadService,
                            PacientesApi pacientesApi,
                            MedicosApi medicosApi,
+                           AuthApi authApi,
                            AuditService auditService) {
         this.citaRepository        = citaRepository;
         this.disponibilidadService = disponibilidadService;
         this.pacientesApi          = pacientesApi;
         this.medicosApi            = medicosApi;
+        this.authApi               = authApi;
         this.auditService          = auditService;
     }
 
@@ -457,7 +463,10 @@ public class CitaServiceImpl implements CitaService {
     @Override
     public CitaResponse agendarAutonomo(AgendarAutonomoRequest request) {
 
-        Long usuarioId = obtenerUsuarioIdAutenticado();
+        UUID usuarioId = obtenerUsuarioIdAutenticado();
+        if (usuarioId == null) {
+            throw new BusinessRuleException("No fue posible resolver el usuario autenticado");
+        }
         PacienteResumenDTO pacienteResumenDTO = pacientesApi.buscarPorUsuarioId(usuarioId);
 
         long citasFuturas = citaRepository.countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(pacienteResumenDTO.getId(), "CANCELADA", LocalDate.now());
@@ -510,21 +519,26 @@ public class CitaServiceImpl implements CitaService {
         }
     }
 
-    private Long obtenerUsuarioIdAutenticado() {
+    private UUID obtenerUsuarioIdAutenticado() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
             return null;
         }
+
+        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            String keycloakUserId = jwtAuth.getToken().getSubject();
+            return authApi.findByKeycloakId(keycloakUserId)
+                    .map(com.piedrazul.backend.auth.api.dto.UsuarioInfoDto::getId)
+                    .orElse(null);
+        }
+
         Object principal = authentication.getPrincipal();
-        if (principal instanceof Long userId) {
-            return userId;
+        if (principal instanceof String principalStr) {
+            return authApi.findByKeycloakId(principalStr)
+                    .map(com.piedrazul.backend.auth.api.dto.UsuarioInfoDto::getId)
+                    .orElse(null);
         }
-        if (principal instanceof Integer userId) {
-            return userId.longValue();
-        }
-        if (principal instanceof String principalStr && principalStr.matches("\\d+")) {
-            return Long.parseLong(principalStr);
-        }
+
         return null;
     }
 

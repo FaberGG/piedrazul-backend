@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Implementación de la API pública del módulo AUTH.
@@ -68,15 +69,26 @@ public class AuthFacade implements AuthApi {
      * ajustar la condición de estado aquí, sin tocar los llamadores.
      */
     @Override
-    public boolean existeUsuarioActivo(Long usuarioId) {
+    public boolean existeUsuarioActivo(UUID usuarioId) {
         return usuarioRepository.findById(usuarioId)
                 .map(u -> "ACTIVO".equals(u.getEstado()))
                 .orElse(false);
     }
 
     @Override
-    public Optional<UsuarioInfoDto> findById(Long usuarioId) {
+    public Optional<UsuarioInfoDto> findById(UUID usuarioId) {
         return usuarioRepository.findById(usuarioId)
+                .map(u -> UsuarioInfoDto.builder()
+                        .id(u.getId())
+                        .username(u.getUsername())
+                        .rol(u.getRol())
+                        .estado(u.getEstado())
+                        .build());
+    }
+
+    @Override
+    public Optional<UsuarioInfoDto> findByKeycloakId(String keycloakId) {
+        return usuarioRepository.findByKeycloakId(keycloakId)
                 .map(u -> UsuarioInfoDto.builder()
                         .id(u.getId())
                         .username(u.getUsername())
