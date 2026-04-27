@@ -1,0 +1,31 @@
+username,password,nombres,documento,apellidos,celular,genero,fechaNacimiento,correo
+paciente.001,Password123!,Andrés Felipe,1023456781,Martínez Rojas,3101234501,MASCULINO,1990-01-15,andres.martinez01@email.com
+paciente.002,Password123!,Laura Valentina,1034567892,Gómez Herrera,3112345602,FEMENINO,1988-06-22,laura.gomez02@email.com
+paciente.003,Password123!,Carlos Eduardo,1045678903,López Suárez,3123456703,MASCULINO,1975-11-08,carlos.lopez03@email.com
+paciente.004,Password123!,María Camila,1056789014,Rodríguez Vargas,3134567804,FEMENINO,1995-03-30,maria.rodriguez04@email.com
+paciente.005,Password123!,Jorge Iván,1067890125,Sánchez Moreno,3145678905,MASCULINO,1982-09-14,jorge.sanchez05@email.com
+paciente.006,Password123!,Ana Sofía,1078901236,Pérez Castro,3156789006,FEMENINO,1993-12-05,ana.perez06@email.com
+paciente.007,Password123!,David Alejandro,1089012347,Torres Mendoza,3167890107,MASCULINO,1987-04-19,david.torres07@email.com
+paciente.008,Password123!,Valentina,1090123458,Ramírez Ortiz,3178901208,FEMENINO,1998-07-27,valentina.ramirez08@email.com
+paciente.009,Password123!,Miguel Ángel,1101234569,Flores Ríos,3189012309,MASCULINO,1979-02-11,miguel.flores09@email.com
+paciente.010,Password123!,Daniela Paola,1112345670,Jiménez Parra,3190123410,FEMENINO,1991-10-03,daniela.jimenez10@email.com
+paciente.011,Password123!,Sebastián,1123456781,Morales Acosta,3201234511,MASCULINO,1996-05-18,sebastian.morales11@email.com
+paciente.012,Password123!,Isabella,1134567892,Cruz Delgado,3212345612,FEMENINO,1984-08-24,isabella.cruz12@email.com
+paciente.013,Password123!,Julián Ernesto,1145678903,Vargas Reyes,3223456713,MASCULINO,1972-01-07,julian.vargas13@email.com
+paciente.014,Password123!,Mariana,1156789014,Díaz Gutiérrez,3234567814,FEMENINO,1999-04-12,mariana.diaz14@email.com
+paciente.015,Password123!,Ricardo Andrés,1167890125,Herrera Blanco,3245678915,MASCULINO,1980-11-29,ricardo.herrera15@email.com
+paciente.016,Password123!,Natalia Carolina,1178901236,Medina Salcedo,3256789016,FEMENINO,1994-07-06,natalia.medina16@email.com
+paciente.017,Password123!,Alejandro,1189012347,Ruiz Castillo,3267890117,MASCULINO,1986-03-21,alejandro.ruiz17@email.com
+paciente.018,Password123!,Sara Lucía,1190123458,Aguilar Montoya,3278901218,FEMENINO,1997-09-15,sara.aguilar18@email.com
+paciente.019,Password123!,Luis Fernando,1201234569,Peña Ospina,3289012319,MASCULINO,1973-06-08,luis.pena19@email.com
+paciente.020,Password123!,Gabriela,1212345670,Córdoba Henao,3290123420,FEMENINO,1992-12-31,gabriela.cordoba20@email.com
+paciente.021,Password123!,Nicolás,1223456781,Guerrero Palomino,3301234521,MASCULINO,1989-02-17,nicolas.guerrero21@email.com
+paciente.022,Password123!,Alejandra,1234567892,Ríos Zambrano,3312345622,FEMENINO,1983-05-23,alejandra.rios22@email.com
+paciente.023,Password123!,Esteban Camilo,1245678903,Molina Patiño,3323456723,MASCULINO,1977-10-09,esteban.molina23@email.com
+paciente.024,Password123!,Valeria,1256789014,Cardona Aristizábal,3334567824,FEMENINO,2000-01-28,valeria.cardona24@email.com
+paciente.025,Password123!,Cristian David,1267890125,Mejía Velásquez,3345678925,MASCULINO,1985-08-14,cristian.mejia25@email.com
+paciente.026,Password123!,Paula Andrea,1278901236,Giraldo Londoño,3356789026,FEMENINO,1990-04-02,paula.giraldo26@email.com
+paciente.027,Password123!,Felipe,1289012347,Cárdenas Arango,3367890127,MASCULINO,1971-12-19,felipe.cardenas27@email.com
+paciente.028,Password123!,Manuela,1290123458,Restrepo Tobón,3378901228,FEMENINO,1996-06-11,manuela.restrepo28@email.com
+paciente.029,Password123!,Santiago,1301234569,Orozco Gaviria,3389012329,MASCULINO,1981-03-25,santiago.orozco29@email.com
+paciente.030,Password123!,Juliana,1312345670,Bermúdez Echeverry,3390123430,FEMENINO,1993-09-07,juliana.bermudez30@email.com
