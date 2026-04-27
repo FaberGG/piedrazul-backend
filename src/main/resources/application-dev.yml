@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5433/piedrazul_dev?currentSchema=public
-    username: piedrazul_user
-    password: piedrazul_pass
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/piedrazul_dev?currentSchema=public}
+    username: ${DB_USERNAME:piedrazul_user}
+    password: ${DB_PASSWORD:piedrazul_pass}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -13,18 +13,16 @@ spring:
       oauth2:
         resourceserver:
           jwt:
-            issuer-uri: http://localhost:8180/realms/piedra-azul
+            issuer-uri: ${OAUTH2_ISSUER_URI:http://localhost:8180/realms/piedrazul}
 keycloak:
   admin:
-    server-url: http://localhost:8180
-    realm: piedra-azul
-    client-id: piedrazul-backend
-    client-secret: aExogrb55E5lYtM7HeiFXFfj1kZJDW8m
+    server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
+    realm: ${KEYCLOAK_REALM:piedrazul}
+    client-id: ${KEYCLOAK_CLIENT_ID:piedrazul-backend}
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:X7Ef99AJnumJQlqArO919NCTT4O63RaP}
 
 
 app:
-  jwt:
-    secret: dev-secret-key-must-be-at-least-512-bits-long-for-hmac-sha512-algorithm-replace-in-prod
   cors:
     allowed-origin-patterns: ["*"]
 

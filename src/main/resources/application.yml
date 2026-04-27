@@ -7,7 +7,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8180/realms/piedra-azul
+          issuer-uri: http://localhost:8180/realms/piedrazul
   jpa:
     hibernate:
       ddl-auto: validate
