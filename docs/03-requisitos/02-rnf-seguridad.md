@@ -4,9 +4,10 @@
 
 Implementacion base observada en `SecurityConfig`:
 
-- Autenticacion stateless con JWT.
+- Backend como `OAuth2 Resource Server` validando JWT por `issuer-uri`.
+- Roles mapeados desde claims del token (`roles`, `realm_access.roles` y `resource_access.*.roles`).
 - Autorizacion por rol con `@PreAuthorize`.
-- Endpoints publicos restringidos a login/registro y Swagger.
+- Endpoints publicos restringidos a `POST /api/v1/auth/register/paciente` y Swagger.
 - Respuesta uniforme de no autorizado: `{"error":"No autorizado"}`.
 
 ## Control por roles (RBAC)
@@ -26,9 +27,9 @@ Recomendacion de gobierno:
 
 ## Seguridad de credenciales
 
-- Hash de contrasenas con `BCryptPasswordEncoder(12)`.
-- Token JWT firmado (libreria JJWT).
-- Expiracion de token configurable (`app.jwt.expiration`).
+- El login y la emision del token los gestiona Keycloak (no Spring).
+- El backend usa `keycloak-admin-client` para altas de usuarios y asignacion de roles.
+- Secretos (DB, Keycloak admin client, issuer) externalizados por variables de entorno (`.env.dev` en local).
 
 ## Integridad de negocio
 
@@ -53,7 +54,8 @@ Controles funcionales relevantes ya implementados:
 ## Riesgos y recomendaciones
 
 - **Riesgo:** coexistencia de roles `ADMIN` y `ADMINISTRADOR`.
-- **Riesgo:** parametros sensibles JWT en perfil dev no aptos para produccion.
+- **Riesgo:** desalineacion entre claims emitidos por Keycloak y converter de Spring Security.
 - **Recomendado:** externalizar secretos con variables de entorno en todos los entornos.
 - **Recomendado:** endurecer politica de registro admin en entornos no locales.
+- **Recomendado:** mantener control de permisos minimos para el service account de Keycloak (`manage-users`) y rotar `client-secret`.
 

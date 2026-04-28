@@ -2,6 +2,8 @@ package com.piedrazul.backend.shared.audit;
 
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 /**
  * Servicio transversal de auditoría.
  * Registra operaciones críticas con contexto de usuario e IP.
@@ -19,7 +21,7 @@ public class AuditService {
      * @param detalles  información adicional en formato JSON
      * @param ip        dirección IP del cliente
      */
-    public void registrar(Long usuarioId, String accion, String entidad,
+    public void registrar(UUID usuarioId, String accion, String entidad,
                            Long entidadId, String detalles, String ip) {
         // TODO: persistir registro de auditoría
     }

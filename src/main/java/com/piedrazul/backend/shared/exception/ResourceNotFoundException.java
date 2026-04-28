@@ -9,7 +9,7 @@ public class ResourceNotFoundException extends RuntimeException {
         super(message);
     }
 
-    public ResourceNotFoundException(String entity, Long id) {
+    public ResourceNotFoundException(String entity, Object id) {
         super(entity + " no encontrado(a) con id: " + id);
     }
 }

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * DTO publico para registrar o actualizar datos basicos de paciente en flujos de agenda.
@@ -16,7 +17,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class RegistroPacienteDTO {
 
-    private Long usuarioId;
+    private UUID usuarioId;
     private String documento;
     private String nombres;
     private String apellidos;

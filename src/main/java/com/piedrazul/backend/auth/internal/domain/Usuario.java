@@ -8,10 +8,11 @@ import lombok.NoArgsConstructor;
 import org.springframework.modulith.NamedInterface;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * Entidad Usuario del sistema.
- * Roles: PACIENTE, AGENDADOR, MEDICO_TERAPISTA, ADMINISTRADOR
+ * Roles de referencia: PACIENTE, TERAPISTA, MEDICO, ADMIN, AGENDADOR
  */
 @NamedInterface
 @Entity
@@ -23,16 +24,16 @@ import java.time.LocalDateTime;
 public class Usuario {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(name = "keycloak_id", nullable = false, unique = true, length = 64)
+    private String keycloakId;
+
+    @Column(unique = true, length = 50)
     private String username;
 
-    @Column(nullable = false, length = 255)
-    private String password;
-
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
     private String rol;
 
     @Column(nullable = false, length = 20)

@@ -1,6 +1,5 @@
 package com.piedrazul.backend.auth.internal.controller;
 
-import com.piedrazul.backend.auth.internal.dto.AuthResponse;
 import com.piedrazul.backend.auth.internal.dto.LoginRequest;
 import com.piedrazul.backend.auth.internal.dto.RegisterMedicoRequest;
 import com.piedrazul.backend.auth.internal.dto.RegisterPacienteRequest;
@@ -24,27 +23,25 @@ public class AuthController {
         this.authService = authService;
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        // TODO: delegar al servicio
-        return ResponseEntity.ok(authService.login(request));
-    }
+    // login eliminado, Keycloak lo maneja
 
     @PostMapping("/register/paciente")
-    public ResponseEntity<AuthResponse> registerPaciente(@Valid @RequestBody RegisterPacienteRequest request) {
-        // TODO: delegar al servicio
-        return ResponseEntity.status(201).body(authService.registerPaciente(request));
+    public ResponseEntity<Void> registerPaciente(@Valid @RequestBody RegisterPacienteRequest request) {
+        authService.registerPaciente(request);
+        return ResponseEntity.status(201).build();
     }
 
     @PostMapping("/register/medico")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AuthResponse> registerMedico(@Valid @RequestBody RegisterMedicoRequest request) {
-        return ResponseEntity.status(201).body(authService.registerMedico(request));
+    public ResponseEntity<Void> registerMedico(@Valid @RequestBody RegisterMedicoRequest request) {
+        authService.registerMedico(request);
+        return ResponseEntity.status(201).build();
     }
 
     @PostMapping("/register/admin")
-    public ResponseEntity<AuthResponse> registerAdmin(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.status(201).body(authService.registerAdmin(request));
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> registerAdmin(@Valid @RequestBody LoginRequest request) {
+        authService.registerAdmin(request);
+        return ResponseEntity.status(201).build();
     }
 }
-

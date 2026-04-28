@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * Entidad de auditoría para trazabilidad de operaciones críticas.
@@ -25,7 +26,7 @@ public class Auditoria {
     private Long id;
 
     @Column(name = "usuario_id")
-    private Long usuarioId;
+    private UUID usuarioId;
 
     @Column(nullable = false, length = 50)
     private String accion;

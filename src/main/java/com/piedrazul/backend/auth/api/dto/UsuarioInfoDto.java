@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 /**
  * DTO de cruce de módulos: lo que el módulo AUTH expone
  * a otros módulos a través de {@link com.piedrazul.backend.auth.api.AuthApi}.
@@ -19,7 +21,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UsuarioInfoDto {
-    private Long id;
+    private UUID id;
     private String username;
     private String rol;
     private String estado;

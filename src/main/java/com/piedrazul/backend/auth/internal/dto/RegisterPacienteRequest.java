@@ -16,8 +16,6 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class RegisterPacienteRequest {
 
-    @NotBlank(message = "El username es obligatorio")
-    private String username;
 
     @NotBlank(message = "La contraseña es obligatoria")
     @Size(min = 8, message = "La contraseña debe tener mínimo 8 caracteres")

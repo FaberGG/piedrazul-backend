@@ -27,7 +27,7 @@ Con base en `pom.xml` y configuraciones activas:
 - Java 17
 - Spring Boot 4.0.3
 - Spring Web MVC
-- Spring Security (JWT)
+- Spring Security (OAuth2 Resource Server + JWT)
 - Spring Data JPA (Hibernate)
 - PostgreSQL (dev)
 - H2 (test)
@@ -35,7 +35,7 @@ Con base en `pom.xml` y configuraciones activas:
 - Swagger/OpenAPI (`springdoc-openapi`)
 - Lombok
 - MapStruct
-- JJWT (`io.jsonwebtoken`)
+- Keycloak (`identity provider`) y `keycloak-admin-client`
 
 ## Perfiles y entorno
 

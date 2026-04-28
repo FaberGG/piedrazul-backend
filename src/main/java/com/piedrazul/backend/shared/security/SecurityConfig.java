@@ -4,49 +4,48 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoders;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
-
-/**
- * Configuración de Spring Security.
- * - Stateless (JWT)
- * - BCrypt para contraseñas
- * - RBAC con @PreAuthorize
- */
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
-
     private final AppCorsProperties corsProperties;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, AppCorsProperties corsProperties) {
-        this.jwtAuthFilter = jwtAuthFilter;
+    public SecurityConfig(AppCorsProperties corsProperties) {
         this.corsProperties = corsProperties;
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
                 .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
@@ -57,50 +56,89 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/v1/auth/login").permitAll()
                         .requestMatchers("/api/v1/auth/register/paciente").permitAll()
-                        .requestMatchers("/api/v1/auth/register/admin").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                );
 
         return http.build();
     }
 
     @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            Set<String> roles = extraerRoles(jwt);
+            return roles.stream()
+                    .map(role -> role.startsWith("ROLE_") ? role.substring(5) : role)
+                    .map(role -> role.trim())
+                    .filter(role -> !role.isEmpty())
+                    .map(role -> role.toUpperCase(Locale.ROOT))
+                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                    .collect(Collectors.toList());
+        });
+        return converter;
+    }
+
+    private Set<String> extraerRoles(Jwt jwt) {
+        Set<String> roles = new LinkedHashSet<>();
+
+        agregarRoles(roles, jwt.getClaim("roles"));
+
+        Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
+        if (realmAccess != null) {
+            agregarRoles(roles, realmAccess.get("roles"));
+        }
+
+        Map<String, Object> resourceAccess = jwt.getClaimAsMap("resource_access");
+        if (resourceAccess != null) {
+            for (Object clientData : resourceAccess.values()) {
+                if (clientData instanceof Map<?, ?> clientMap) {
+                    agregarRoles(roles, clientMap.get("roles"));
+                }
+            }
+        }
+
+        return roles;
+    }
+
+    private void agregarRoles(Set<String> sink, Object claimValue) {
+        if (claimValue instanceof String role && !role.isBlank()) {
+            sink.add(role);
+            return;
+        }
+
+        if (claimValue instanceof Collection<?> values) {
+            for (Object value : values) {
+                if (value instanceof String role && !role.isBlank()) {
+                    sink.add(role);
+                }
+            }
+        }
+    }
+    @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
         List<String> cleanAllowedOrigins = clean(corsProperties.getAllowedOrigins());
         List<String> cleanAllowedOriginPatterns = clean(corsProperties.getAllowedOriginPatterns());
-
-        if (!cleanAllowedOrigins.isEmpty()) {
-            configuration.setAllowedOrigins(cleanAllowedOrigins);
-        }
-        if (!cleanAllowedOriginPatterns.isEmpty()) {
-            configuration.setAllowedOriginPatterns(cleanAllowedOriginPatterns);
-        }
-
+        if (!cleanAllowedOrigins.isEmpty()) configuration.setAllowedOrigins(cleanAllowedOrigins);
+        if (!cleanAllowedOriginPatterns.isEmpty()) configuration.setAllowedOriginPatterns(cleanAllowedOriginPatterns);
         configuration.setAllowedMethods(clean(corsProperties.getAllowedMethods()));
         configuration.setAllowedHeaders(clean(corsProperties.getAllowedHeaders()));
         configuration.setExposedHeaders(clean(corsProperties.getExposedHeaders()));
         configuration.setAllowCredentials(corsProperties.isAllowCredentials());
         configuration.setMaxAge(corsProperties.getMaxAge());
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 
     private List<String> clean(List<String> values) {
-        if (values == null) {
-            return List.of();
-        }
-        return values.stream()
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .toList();
+        if (values == null) return List.of();
+        return values.stream().map(String::trim).filter(v -> !v.isEmpty()).toList();
     }
 
     @Bean
@@ -109,7 +147,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
+    public JwtDecoder jwtDecoder(
+            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri) {
+        return JwtDecoders.fromIssuerLocation(issuerUri);
     }
+
 }

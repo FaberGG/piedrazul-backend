@@ -1,12 +1,12 @@
 -- init.sql
-INSERT INTO usuarios (username, password, rol, estado, created_at, updated_at) VALUES
-('admin', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ADMINISTRADOR', 'ACTIVO', NOW(), NOW()),
-('agendador1', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'AGENDADOR', 'ACTIVO', NOW(), NOW()),
-('paciente1', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'PACIENTE', 'ACTIVO', NOW(), NOW()),
-('medico1', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'MEDICO_TERAPISTA', 'ACTIVO', NOW(), NOW());
+-- Referencias de prueba: keycloak_id debe existir en el realm.
+INSERT INTO usuarios (id, keycloak_id, username, rol, estado, created_at, updated_at) VALUES
+('11111111-1111-1111-1111-111111111111', 'kc-admin-demo', 'admin', 'ADMIN', 'ACTIVO', NOW(), NOW()),
+('22222222-2222-2222-2222-222222222222', 'kc-paciente-demo', 'paciente1', 'PACIENTE', 'ACTIVO', NOW(), NOW()),
+('33333333-3333-3333-3333-333333333333', 'kc-medico-demo', 'medico1', 'MEDICO', 'ACTIVO', NOW(), NOW());
 
 INSERT INTO medicos (usuario_id, nombres, apellidos, especialidad, tipo, estado) VALUES
-(4, 'Carlos', 'Ramirez', 'QUIROPRAXIA', 'MEDICO', 'ACTIVO');
+('33333333-3333-3333-3333-333333333333', 'Carlos', 'Ramirez', 'QUIROPRAXIA', 'MEDICO', 'ACTIVO');
 
 INSERT INTO pacientes (usuario_id, documento, nombres, apellidos, celular, genero, created_at) VALUES
-(3, '123456789', 'Juan', 'Perez', '3001234567', 'MASCULINO', NOW());
+('22222222-2222-2222-2222-222222222222', '123456789', 'Juan', 'Perez', '3001234567', 'MASCULINO', NOW());

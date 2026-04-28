@@ -2,7 +2,9 @@ package com.piedrazul.backend.shared.exception;
 
 import com.piedrazul.backend.shared.dto.ErrorResponse;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -70,6 +72,30 @@ class GlobalExceptionHandlerTest {
         assertEquals(401, response.getBody().getStatus());
         assertEquals("Unauthorized", response.getBody().getError());
         assertEquals("Credenciales inválidas", response.getBody().getMessage());
+    }
+
+    @Test
+    void retorna401ParaAuthenticationExceptionGenerica() {
+        ResponseEntity<ErrorResponse> response =
+                handler.handleAuthentication(new AuthenticationCredentialsNotFoundException("sin auth"));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(401, response.getBody().getStatus());
+        assertEquals("Unauthorized", response.getBody().getError());
+        assertEquals("No autorizado", response.getBody().getMessage());
+    }
+
+    @Test
+    void retorna403ParaAccessDenied() {
+        ResponseEntity<ErrorResponse> response =
+                handler.handleAccessDenied(new AccessDeniedException("forbidden"));
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(403, response.getBody().getStatus());
+        assertEquals("Forbidden", response.getBody().getError());
+        assertEquals("No tiene permisos para realizar esta acción", response.getBody().getMessage());
     }
 
     @Test

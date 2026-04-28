@@ -30,7 +30,7 @@ Capas tecnicas principales:
 3. Repository
 4. Base de datos
 
-Tecnologias base: Java 17, Spring Boot, Spring Security (JWT), Spring Data JPA, PostgreSQL (dev), H2 (test), Spring Modulith.
+Tecnologias base: Java 17, Spring Boot, Spring Security (OAuth2 Resource Server + JWT), Spring Data JPA, PostgreSQL (dev), H2 (test), Spring Modulith, Keycloak.
 
 ## Modulos del monolito modular
 
@@ -38,9 +38,9 @@ El sistema esta organizado por modulos de dominio. Cada modulo expone una fronte
 
 | Modulo | Responsabilidad principal | Endpoints principales |
 | --- | --- | --- |
-| `shared` | Capacidades transversales: seguridad JWT, auditoria y excepciones comunes | Sin endpoints directos |
-| `auth` | Login y registro de usuarios | `/auth/login`, `/auth/register/*` |
-| `agenda` | Creacion/consulta de citas y disponibilidad | `/citas/agenda`, `/citas/manual`, `/citas/disponibilidad/*`, `/citas/agenda-dinamica`, `/citas/agenda-dinamica/stream`, `/citas/prioridad`, `/citas/autonomo` |
+| `shared` | Capacidades transversales: seguridad, auditoria y excepciones comunes | Sin endpoints directos |
+| `auth` | Registro de usuarios y sincronizacion con Keycloak | `/auth/register/*` |
+| `agenda` | Creacion/consulta de citas y disponibilidad | `/citas/agenda`, `/citas/manual`, `/citas/disponibilidad/*`, `/citas/agenda-dinamica`, `/citas/prioridad`, `/citas/autonomo` |
 | `medicos` | Catalogo de medicos y configuracion de agenda por medico | `/medicos`, `/medicos/{medicoId}/configuracion` |
 | `pacientes` | Consulta y busqueda de pacientes, soporte de autocompletado | `/pacientes`, `/pacientes/{id}`, `/pacientes/buscar` |
 | `reportes` | Reporteria agregada de citas | `/reportes/citas` |
@@ -126,7 +126,7 @@ Documento de respaldo: [`REQUISITOS-FUNCIONALES.md`](REQUISITOS-FUNCIONALES.md)
 | RF-03 Agendar cita autonoma paciente | PENDIENTE | Endpoint definido; servicio `agendarAutonomo` sin implementar |
 | RF-04 Configuracion parametros del sistema | PARCIAL | Configuracion por medico implementada; ventana global no centralizada |
 | RF-05 Gestion de usuarios | PARCIAL | Flujos de registro existen en `auth`; gestion administrativa integral no centralizada en un modulo dedicado |
-| RF-06 Autenticacion y control de acceso | COMPLETO | JWT + RBAC por rol en controladores |
+| RF-06 Autenticacion y control de acceso | COMPLETO | Keycloak + validacion JWT en Resource Server + RBAC por rol |
 | RF-07 Gestion de medicos/terapistas | PARCIAL | Listado y configuracion de agenda por medico implementados |
 | RF-08 Re-agendamiento de citas | PENDIENTE | Sin endpoint dedicado de reagendamiento |
 | RF-09 Exportacion de citas | PENDIENTE | Sin endpoint CSV implementado |
@@ -151,14 +151,13 @@ Base URL: `http://localhost:8080/api/v1`
 
 | Metodo | Endpoint | Estado |
 | --- | --- | --- |
-| POST | `/auth/login` | Implementado |
 | POST | `/auth/register/paciente` | Implementado |
-| POST | `/auth/register/admin` | Implementado |
 
 ### Auth
 
 | Metodo | Endpoint | Roles | Estado |
 | --- | --- | --- | --- |
+| POST | `/auth/register/admin` | `ADMIN` | Implementado |
 | POST | `/auth/register/medico` | `ADMIN` | Implementado |
 
 ### Agenda
@@ -196,6 +195,17 @@ Base URL: `http://localhost:8080/api/v1`
 | --- | --- | --- | --- |
 | GET | `/reportes/citas` | `AGENDADOR`, `ADMIN` | Implementado |
 
+### Configuracion de Agenda
+
+| Metodo | Endpoint | Roles | Estado |
+| --- | --- | --- | --- |
+| GET | `/configuracion/agenda` | `ADMIN` | Implementado |
+| PUT | `/configuracion/agenda/ventana` | `ADMIN` | Implementado |
+| GET | `/configuracion/agenda/dias-no-laborales` | `ADMIN` | Implementado |
+| POST | `/configuracion/agenda/dias-no-laborales` | `ADMIN` | Implementado |
+| DELETE | `/configuracion/agenda/dias-no-laborales/{id}` | `ADMIN` | Implementado |
+| POST | `/configuracion/agenda/dias-no-laborales/importar-festivos?anio=YYYY` | `ADMIN` | Implementado |
+
 Nota:
 
 Aunque existe endpoint expuesto para `POST /citas/autonomo`, el metodo de servicio asociado aun se encuentra en estado pendiente de implementacion completa.
@@ -223,9 +233,9 @@ Documento de respaldo: [`05-datos/01-modelo-datos-y-diccionario.md`](docs/05-dat
 
 ## Seguridad y calidad (clave)
 
-- Autenticacion stateless con JWT.
+- Keycloak como proveedor de identidad y login.
+- Backend como Resource Server validando JWT por `issuer-uri`.
 - RBAC por roles con `@PreAuthorize`.
-- Hash de credenciales con BCrypt.
 - Auditoria operativa en eventos criticos.
 
 Riesgo documental/tecnico a resolver: coexistencia de `ADMIN` y `ADMINISTRADOR`; se recomienda estandarizar.
@@ -253,6 +263,37 @@ Documento de respaldo: [`03-requisitos/02-rnf-seguridad.md`](docs/03-requisitos/
 
 - [`04-api/01-endpoints-implementados.md`](docs/04-api/01-endpoints-implementados.md)
 - [`04-api/02-flujos-por-rol.md`](docs/04-api/02-flujos-por-rol.md)
+- [`04-api/05-keycloak-autenticacion.md`](docs/04-api/05-keycloak-autenticacion.md)
+
+## Flujo recomendado del equipo (dev)
+
+1. Copiar la plantilla de variables locales:
+
+```bash
+cp .env.dev.example .env.dev
+```
+
+2. Levantar infraestructura local:
+
+```bash
+docker compose --env-file .env.dev up -d
+docker ps
+```
+
+3. Ejecutar el backend (cargando variables de `.env.dev` en la sesion actual):
+
+```bash
+set -a
+source .env.dev
+set +a
+./mvnw spring-boot:run
+```
+
+Notas:
+
+- El endpoint de login lo expone Keycloak, no el backend Spring.
+- La guia detallada de Keycloak se mantiene en `docs/04-api/05-keycloak-autenticacion.md`.
+- El detalle de contratos HTTP esta en `docs/04-api/01-endpoints-implementados.md`.
 
 ### 5. Datos
 

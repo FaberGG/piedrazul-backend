@@ -13,6 +13,7 @@ import java.util.List;
  * Carga el usuario desde la BD por username para validar credenciales.
  */
 @Service
+@Deprecated(since = "keycloak-migration", forRemoval = false)
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UsuarioRepository usuarioRepository;
@@ -26,10 +27,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         Usuario usuario = usuarioRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
 
+        String rol = usuario.getRol() == null ? "" : usuario.getRol();
+
         return new org.springframework.security.core.userdetails.User(
                 usuario.getUsername(),
-                usuario.getPassword(),
-                List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRol()))
+                "",
+                List.of(new SimpleGrantedAuthority("ROLE_" + rol))
         );
     }
 }

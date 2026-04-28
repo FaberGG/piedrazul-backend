@@ -18,7 +18,7 @@ public class PacienteController {
     private final PacienteService pacienteService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
     public ResponseEntity<List<PacienteResponse>> listarTodos() {
         return ResponseEntity.ok(pacienteService.listarTodos());
     }
@@ -30,7 +30,7 @@ public class PacienteController {
     }
 
     @GetMapping("/buscar")
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
     public ResponseEntity<List<PacienteSugerenciaResponse>> buscarPorDocumento(
             @RequestParam String documento,
             @RequestParam(required = false, defaultValue = "5") int limit) {

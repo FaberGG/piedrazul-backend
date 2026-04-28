@@ -1,18 +1,20 @@
+version: "3.9"
+
 services:
 
   postgres:
     image: postgres:15-alpine
     container_name: piedrazul_db
-    environment:
-      POSTGRES_DB: piedrazul_dev
-      POSTGRES_USER: piedrazul_user
-      POSTGRES_PASSWORD: piedrazul_pass
+    env_file:
+      - ./.env.dev
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - piedrazul_data:/var/lib/postgresql/data
+      # Script que crea la DB de keycloak al iniciar por primera vez
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U piedrazul_user -d piedrazul_dev" ]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -20,11 +22,35 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: piedrazul_pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@piedrazul.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+    env_file:
+      - ./.env.dev
     ports:
       - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: piedrazul_keycloak
+    # start-dev: modo desarrollo (no TLS)
+    # --import-realm: importa automáticamente los JSON de /opt/keycloak/data/import
+    # --db: usa PostgreSQL como backend
+    command: start-dev --import-realm --db=postgres
+    env_file:
+      - ./.env.dev
+    environment:
+      # Conexión a PostgreSQL - misma instancia, distinta DB
+      KC_DB: postgres
+      # Puerto interno
+      KC_HTTP_PORT: 8080
+      # Hostname (para dev sin TLS)
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+    volumes:
+      - ./docker/keycloak:/opt/keycloak/data/import
+    ports:
+      - "8180:8080"
     depends_on:
       postgres:
         condition: service_healthy

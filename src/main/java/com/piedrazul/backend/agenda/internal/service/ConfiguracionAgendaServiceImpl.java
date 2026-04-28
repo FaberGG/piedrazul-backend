@@ -12,7 +12,9 @@ import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.web.client.RestTemplate;
+import java.time.LocalDate;
+import com.piedrazul.backend.agenda.internal.dto.FestivoNager;
 import java.util.List;
 
 @Service
@@ -22,6 +24,7 @@ public class ConfiguracionAgendaServiceImpl implements ConfiguracionAgendaServic
 
     private static final String CLAVE_VENTANA = "VENTANA_AGENDAMIENTO_SEMANAS";
     private static final int VENTANA_DEFAULT = 4;
+    private final RestTemplate restTemplate = new RestTemplate();
 
     private final ConfiguracionGlobalRepository configuracionRepository;
     private final DiaNoLaboralRepository diaNoLaboralRepository;
@@ -89,4 +92,28 @@ public class ConfiguracionAgendaServiceImpl implements ConfiguracionAgendaServic
                 .descripcion(d.getDescripcion())
                 .build();
     }
+
+    @Override
+@Transactional
+public List<DiaNoLaboralResponse> importarFestivos(int anio) {
+    String url = "https://date.nager.at/api/v3/PublicHolidays/" + anio + "/CO";
+
+    FestivoNager[] festivos = restTemplate.getForObject(url, FestivoNager[].class);
+
+    if (festivos == null) return List.of();
+
+    List<DiaNoLaboralResponse> importados = new java.util.ArrayList<>();
+
+    for (FestivoNager festivo : festivos) {
+        LocalDate fecha = LocalDate.parse(festivo.getDate());
+        if (!diaNoLaboralRepository.existsByFecha(fecha)) {
+            DiaNoLaboral dia = DiaNoLaboral.builder()
+                    .fecha(fecha)
+                    .descripcion(festivo.getLocalName())
+                    .build();
+            importados.add(toResponse(diaNoLaboralRepository.save(dia)));
+        }
+    }
+    return importados;
+}
 }

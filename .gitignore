@@ -34,3 +34,7 @@ build/
 
 ### Test log files ###
 *.log
+
+### Local environment files ###
+.env.dev
+!.env.dev.example

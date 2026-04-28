@@ -27,14 +27,17 @@ Person(admin, "Administrador", "Configura parametros y gobierno del sistema")
 System(backend, "Piedrazul Backend", "Monolito modular Spring Boot para agendamiento, seguridad y reportes")
 
 System_Ext(frontend, "Frontend Web / Cliente API", "Cliente actual o futuro para consumir endpoints")
+System_Ext(keycloak, "Keycloak", "Identity Provider OIDC/OAuth2 para login y emision de JWT")
 System_Ext(notificaciones, "Servicio de notificaciones (planeado)", "Canal email/WhatsApp/SMS para confirmaciones")
 
 Rel(frontend, backend, "Consume API REST", "HTTPS/JSON")
+Rel(frontend, keycloak, "Obtiene token", "OIDC/OAuth2")
 Rel(paciente, frontend, "Opera desde interfaz web")
 Rel(agendador, frontend, "Opera desde interfaz interna")
 Rel(medico, frontend, "Consulta agenda diaria")
 Rel(admin, frontend, "Administra el sistema")
 
+Rel(backend, keycloak, "Valida JWT y gestiona usuarios", "Issuer + Admin API")
 Rel(backend, notificaciones, "Envia alertas de citas", "Evento/API (planeado)")
 
 SHOW_LEGEND()
@@ -51,6 +54,7 @@ LAYOUT_LEFT_RIGHT()
 
 Person(usuario, "Usuario del sistema", "Paciente, Agendador, Medico/Terapista, Admin")
 System_Ext(frontend, "Frontend Web / Cliente API", "Interfaz de consumo")
+System_Ext(keycloak, "Keycloak", "Identity Provider")
 
 System_Boundary(s1, "Piedrazul Backend") {
   Container(api, "API Spring Boot", "Java 17, Spring Boot, Spring Security, Spring Data JPA", "Expone endpoints de auth, agenda, medicos, pacientes, reportes")
@@ -58,8 +62,10 @@ System_Boundary(s1, "Piedrazul Backend") {
 }
 
 Rel(usuario, frontend, "Usa")
+Rel(frontend, keycloak, "Login", "OIDC/OAuth2")
 Rel(frontend, api, "Consume", "HTTPS/JSON")
 Rel(api, db, "Lee/Escribe", "JPA/Hibernate")
+Rel(api, keycloak, "Valida token y administra usuarios", "JWT + Admin API")
 
 SHOW_LEGEND()
 @enduml
@@ -81,11 +87,13 @@ LAYOUT_TOP_DOWN()
 
 Person(usuario, "Usuario autenticado")
 ContainerDb(db, "PostgreSQL", "RDBMS")
+System_Ext(keycloak, "Keycloak", "IdP")
 
 Container_Boundary(api, "API Spring Boot (Monolito modular)") {
   Boundary(modAuth, "Modulo auth") {
-    Component(authController, "AuthController", "REST Controller", "Login y registro")
-    Component(authService, "AuthServiceImpl", "Service", "Autenticacion JWT y registro de usuarios")
+    Component(authController, "AuthController", "REST Controller", "Registro de usuarios")
+    Component(authService, "AuthServiceImpl", "Service", "Registro de usuarios y coordinacion de datos de negocio")
+    Component(keycloakAdminService, "KeycloakAdminService", "Service", "Provisiona usuario y rol via keycloak-admin-client")
     Component(usuarioRepo, "UsuarioRepository", "Repository", "Persistencia de usuarios")
   }
 
@@ -131,7 +139,9 @@ Rel(usuario, medicosController, "Invoca")
 Rel(usuario, reportesController, "Invoca")
 
 Rel(authController, authService, "Usa")
+Rel(authService, keycloakAdminService, "Usa")
 Rel(authService, usuarioRepo, "Usa")
+Rel(keycloakAdminService, keycloak, "Admin API")
 Rel(citaController, citaService, "Usa")
 Rel(citaController, disponibilidadService, "Usa")
 Rel(citaService, citaRepository, "Usa")

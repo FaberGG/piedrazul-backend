@@ -1,9 +1,9 @@
 package com.piedrazul.backend.auth.internal.service;
 
-import com.piedrazul.backend.auth.internal.dto.AuthResponse;
 import com.piedrazul.backend.auth.internal.dto.LoginRequest;
 import com.piedrazul.backend.auth.internal.dto.RegisterMedicoRequest;
 import com.piedrazul.backend.auth.internal.dto.RegisterPacienteRequest;
+import com.piedrazul.backend.shared.exception.BusinessRuleException;
 
 /**
  * Contrato interno del servicio de autenticación (módulo AUTH).
@@ -13,48 +13,25 @@ import com.piedrazul.backend.auth.internal.dto.RegisterPacienteRequest;
 public interface AuthService {
 
     /**
-     * Autentica un usuario con sus credenciales y genera un token JWT.
-     *
-     * @param request credenciales (username + password)
-     * @return respuesta con token JWT, username y rol
-     * @throws org.springframework.security.authentication.BadCredentialsException si las credenciales son inválidas
-     * @throws com.piedrazul.backend.shared.exception.BusinessRuleException si el usuario está inactivo
-     */
-    AuthResponse login(LoginRequest request);
-
-    /**
-     * Registra un nuevo paciente con cuenta de autogestión y genera su token JWT.
+     * Registra un nuevo paciente.
      * Crea en una transacción atómica: Usuario (rol PACIENTE) + Paciente vinculado.
      *
-     * @param request datos de registro
-     * @return respuesta con token JWT listo para usar
-     * @throws com.piedrazul.backend.shared.exception.BusinessRuleException si el username ya existe
+     * @throws BusinessRuleException si el username ya existe
      */
-    AuthResponse registerPaciente(RegisterPacienteRequest request);
-
-
-    /**
-     * Registra un nuevo médico. Solo accesible para ADMIN.
-     * Crea en una transacción atómica: Usuario (rol MEDICO) + Medico vinculado.
-     */
-    AuthResponse registerMedico(RegisterMedicoRequest request);
+    void registerPaciente(RegisterPacienteRequest request);
 
     /**
      * Registra un nuevo médico. Solo accesible para ADMIN.
      * Crea en una transacción atómica: Usuario (rol MEDICO) + Medico vinculado.
      *
-     * @param request datos de registro del médico
-     * @return respuesta con token JWT
-     * @throws com.piedrazul.backend.shared.exception.BusinessRuleException si el username ya existe
+     * @throws BusinessRuleException si el username ya existe
      */
+    void registerMedico(RegisterMedicoRequest request);
 
     /**
-     * Registra un usuario ADMIN. Solo para uso en desarrollo.
-     * ELIMINAR o proteger antes de producción.
+     * Registra un usuario ADMIN.
      *
-     * @param request credenciales (username + password)
-     * @return respuesta con token JWT
+     * @throws BusinessRuleException si el username ya existe
      */
-    AuthResponse registerAdmin(LoginRequest request);
-
+    void registerAdmin(LoginRequest request);
 }

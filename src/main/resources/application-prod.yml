@@ -6,10 +6,20 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH2_ISSUER_URI}
+
+keycloak:
+  admin:
+    server-url: ${KEYCLOAK_SERVER_URL}
+    realm: ${KEYCLOAK_REALM:piedrazul}
+    client-id: ${KEYCLOAK_CLIENT_ID}
+    client-secret: ${KEYCLOAK_CLIENT_SECRET}
 
 app:
-  jwt:
-    secret: ${JWT_SECRET}
   cors:
     # TODO: definir dominios frontend reales antes de desplegar.
     # Ejemplo: ["https://app.piedrazul.com", "https://admin.piedrazul.com"]

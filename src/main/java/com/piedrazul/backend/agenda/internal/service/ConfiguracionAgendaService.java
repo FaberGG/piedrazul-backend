@@ -13,4 +13,5 @@ public interface ConfiguracionAgendaService {
     DiaNoLaboralResponse agregarDiaNoLaboral(DiaNoLaboralRequest request);
     void eliminarDiaNoLaboral(Long id);
     List<DiaNoLaboralResponse> listarDiasNoLaborales();
+    List<DiaNoLaboralResponse> importarFestivos(int anio);
 }

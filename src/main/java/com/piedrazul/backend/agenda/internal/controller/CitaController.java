@@ -38,7 +38,7 @@ public class CitaController {
     }
 
     @GetMapping("/agenda")
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'ADMIN', 'MEDICO')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'ADMIN', 'MEDICO')")
     public ResponseEntity<AgendaResponse> listarAgenda(
             @RequestParam Long medicoId,
             @RequestParam LocalDate fecha) {
@@ -46,7 +46,7 @@ public class CitaController {
     }
 
     @PostMapping("/manual")
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO')")
     public ResponseEntity<CitaResponse> crearCitaManual(
             @Valid @RequestBody CrearCitaManualRequest request) {
         return ResponseEntity.status(201).body(citaService.crearCitaManual(request));
@@ -60,7 +60,7 @@ public class CitaController {
     }
 
     @GetMapping("/disponibilidad/primera")
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'PACIENTE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'PACIENTE', 'ADMIN')")
     public ResponseEntity<PrimerHorarioDisponibleResponse> primerHorarioMedico(
             @RequestParam Long medicoId,
             @RequestParam(required = false) LocalDate desde) {
@@ -68,14 +68,14 @@ public class CitaController {
     }
 
     @GetMapping("/disponibilidad/primera/global")
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'PACIENTE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'PACIENTE', 'ADMIN')")
     public ResponseEntity<PrimerHorarioDisponibleResponse> primerHorarioGlobal(
             @RequestParam(required = false) LocalDate desde) {
         return ResponseEntity.ok(citaService.obtenerPrimerHorarioDisponibleGlobal(desde));
     }
 
     @GetMapping("/disponibilidad/franjas")
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'PACIENTE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'PACIENTE', 'ADMIN')")
     public ResponseEntity<List<LocalTime>> obtenerFranjasDisponibles(
             @RequestParam Long medicoId,
             @RequestParam LocalDate fecha) {
@@ -83,7 +83,7 @@ public class CitaController {
     }
 
     @GetMapping("/agenda-dinamica")
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
     public ResponseEntity<AgendaDinamicaResponse> agendaDinamica(
             @RequestParam Long medicoId,
             @RequestParam LocalDate fecha) {
@@ -102,7 +102,7 @@ public class CitaController {
     }
 
     @PostMapping("/prioridad")
-    @PreAuthorize("hasAnyRole('AGENDADOR', 'MEDICO_TERAPISTA', 'MEDICO', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
     public ResponseEntity<CitaResponse> crearCitaPrioritaria(
             @Valid @RequestBody CrearCitaPrioritariaRequest request) {
         return ResponseEntity.status(201).body(citaService.crearCitaPrioritaria(request));

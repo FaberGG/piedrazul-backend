@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
+
 /**
  * Implementacion del facade publico del modulo Pacientes.
  */
@@ -80,7 +82,7 @@ public class PacientesFacade implements PacientesApi {
 
     @Override
     @Transactional(readOnly = true)
-    public PacienteResumenDTO buscarPorUsuarioId(Long usuarioId) {
+    public PacienteResumenDTO buscarPorUsuarioId(UUID usuarioId) {
         Paciente paciente = pacientesRepository.findByUsuarioId(usuarioId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente", usuarioId));
 
