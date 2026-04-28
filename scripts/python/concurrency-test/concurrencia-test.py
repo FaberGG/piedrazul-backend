@@ -30,6 +30,10 @@ DEFAULT_CSV_FILE = "pacientes.csv"
 DEFAULT_TIMEOUT_SECONDS = 15
 DEFAULT_WORKERS = 10
 DEFAULT_ATTEMPTS = 10
+DEFAULT_KEYCLOAK_BASE_URL = "http://localhost:8180"
+DEFAULT_KEYCLOAK_REALM = "piedrazul"
+DEFAULT_KEYCLOAK_CLIENT_ID = "piedrazul-frontend"
+DEFAULT_KEYCLOAK_SCOPE = "openid profile email roles"
 
 HEADERS_JSON = {"Content-Type": "application/json"}
 
@@ -43,10 +47,9 @@ class Slot:
     intervalo_minutos: int | None = None
 
 
-def configure_logging(output_dir: Path) -> tuple[Path, Path]:
+def configure_logging(output_dir: Path) -> tuple[Path | None, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = output_dir / f"concurrency_{timestamp}.log"
     report_file = output_dir / f"concurrency_{timestamp}.json"
 
     logging.basicConfig(
@@ -55,10 +58,9 @@ def configure_logging(output_dir: Path) -> tuple[Path, Path]:
         datefmt="%H:%M:%S",
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler(log_file, encoding="utf-8"),
         ],
     )
-    return log_file, report_file
+    return None, report_file
 
 
 def post(base_url: str, path: str, payload: dict[str, Any], token: str | None, timeout: int) -> requests.Response:
@@ -75,21 +77,37 @@ def get(base_url: str, path: str, token: str | None, timeout: int) -> requests.R
     return requests.get(f"{base_url}{path}", headers=headers, timeout=timeout)
 
 
-def login(base_url: str, username: str, password: str, timeout: int) -> str:
-    response = post(
-        base_url,
-        "/auth/login",
-        {"username": username, "password": password},
-        token=None,
-        timeout=timeout,
-    )
+def keycloak_token(
+    keycloak_base_url: str,
+    realm: str,
+    client_id: str,
+    client_secret: str | None,
+    username: str,
+    password: str,
+    scope: str,
+    timeout: int,
+) -> str:
+    token_url = f"{keycloak_base_url}/realms/{realm}/protocol/openid-connect/token"
+    data = {
+        "grant_type": "password",
+        "client_id": client_id,
+        "username": username,
+        "password": password,
+        "scope": scope,
+    }
+    if client_secret:
+        data["client_secret"] = client_secret
 
+    response = requests.post(token_url, data=data, timeout=timeout)
     if response.status_code not in (200, 201):
-        raise RuntimeError(f"Login failed for '{username}' -> HTTP {response.status_code}: {response.text[:180]}")
+        raise RuntimeError(
+            f"Keycloak login failed for '{username}' -> HTTP {response.status_code}: {response.text[:180]}"
+        )
 
-    token = response.json().get("token")
+    payload = response.json()
+    token = payload.get("access_token") or payload.get("token")
     if not token:
-        raise RuntimeError("Login response does not contain token")
+        raise RuntimeError("Keycloak response does not contain access token")
     return token
 
 
@@ -239,13 +257,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="API base URL")
     parser.add_argument("--csv", default=DEFAULT_CSV_FILE, help="CSV file with registered patients")
-    parser.add_argument("--username", required=True, help="User for /auth/login (MEDICO or AGENDADOR)")
-    parser.add_argument("--password", required=True, help="Password for /auth/login")
+    parser.add_argument("--username", required=True, help="Keycloak username (MEDICO or ADMIN)")
+    parser.add_argument("--password", required=True, help="Keycloak password")
+    parser.add_argument("--keycloak-base-url", default=DEFAULT_KEYCLOAK_BASE_URL, help="Keycloak base URL")
+    parser.add_argument("--keycloak-realm", default=DEFAULT_KEYCLOAK_REALM, help="Keycloak realm")
+    parser.add_argument("--keycloak-client-id", default=DEFAULT_KEYCLOAK_CLIENT_ID, help="Keycloak client ID")
+    parser.add_argument("--keycloak-client-secret", default=None, help="Keycloak client secret (optional)")
+    parser.add_argument("--keycloak-scope", default=DEFAULT_KEYCLOAK_SCOPE, help="Keycloak scope")
     parser.add_argument("--medico-id", type=int, required=True, help="Target medicoId for concurrent booking")
     parser.add_argument("--attempts", type=int, default=DEFAULT_ATTEMPTS, help="How many concurrent booking attempts")
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help="Thread pool size")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_SECONDS, help="HTTP timeout in seconds")
-    parser.add_argument("--output-dir", default="scripts/reports", help="Directory for logs and JSON report")
+    parser.add_argument("--output-dir", default="scripts/reports", help="Directory for JSON report")
     return parser.parse_args()
 
 
@@ -258,8 +281,19 @@ def main() -> None:
     LOG.info("CSV           : %s", args.csv)
     LOG.info("medicoId      : %s", args.medico_id)
     LOG.info("attempts/workers: %s/%s", args.attempts, args.workers)
+    LOG.info("Keycloak      : %s/realms/%s", args.keycloak_base_url, args.keycloak_realm)
+    LOG.info("Keycloak client: %s", args.keycloak_client_id)
 
-    token = login(args.base_url, args.username, args.password, timeout=args.timeout)
+    token = keycloak_token(
+        keycloak_base_url=args.keycloak_base_url,
+        realm=args.keycloak_realm,
+        client_id=args.keycloak_client_id,
+        client_secret=args.keycloak_client_secret,
+        username=args.username,
+        password=args.password,
+        scope=args.keycloak_scope,
+        timeout=args.timeout,
+    )
     patients = load_patients(Path(args.csv), attempts=args.attempts)
     slot = get_first_slot(args.base_url, token, medico_id=args.medico_id, timeout=args.timeout)
 
@@ -285,12 +319,11 @@ def main() -> None:
         "attempts": args.attempts,
         "workers": args.workers,
         "report": report,
-        "logFile": str(log_file),
+        "logFile": str(log_file) if log_file else None,
     }
 
     report_file.write_text(json.dumps(report_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     LOG.info("Report written to: %s", report_file)
-    LOG.info("Log written to   : %s", log_file)
 
 
 if __name__ == "__main__":
