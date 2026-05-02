@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalTime;
 import java.util.UUID;
 
-@Entity(name = "MedicosPaciente")
+@Entity
 @Table(name = "medicos")
 @Data
 @Builder
