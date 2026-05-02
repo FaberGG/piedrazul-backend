@@ -1,6 +1,7 @@
 package com.piedrazul.backend.agenda.internal.service;
 
 import com.piedrazul.backend.agenda.api.AgendaApi;
+import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
 import com.piedrazul.backend.agenda.internal.dto.AgendarAutonomoRequest;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaResponse;
@@ -74,6 +75,23 @@ public interface CitaService {
      * @throws com.piedrazul.backend.shared.exception.BusinessRuleException si el slot no está disponible
      */
     CitaResponse agendarAutonomo(AgendarAutonomoRequest request);
+
+    /**
+     * Resumen de citas estadistico por estado, calculado con una fecha de inicio y una fin (rango)
+     *
+     * @param desde fecha de inicio para el rango solicitado
+     * @param hasta fecha de fin para el rango solicitado
+     * @return conjunto del resumen de las citas en el rango dado con conteos por estado y global
+    */
+    ResumenCitasDto obtenerResumenCitas(LocalDate desde, LocalDate hasta);
+
+    /**
+     * Indíca si un paciente tiene citas programadas activas en una fecha futura a la actual del sistema
+     *
+     * @param pacienteId identificación del paciente solicitando la confirmación de la cita
+     * @return true si tiene al menos una cita futura no cancelada, false de lo contrario.
+     */
+    boolean tieneCitasFuturas(Long pacienteId);
 }
 
 
