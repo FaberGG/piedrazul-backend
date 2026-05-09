@@ -14,6 +14,8 @@ Implementacion base observada en `SecurityConfig`:
 
 Se implemento limitacion de tasa a nivel de filtro de seguridad para endpoints publicos y aquellos donde `PACIENTE` tiene acceso. Los limites se configuran en `src/main/resources/application.yml` bajo `app.rate-limiting`.
 
+Detalle completo en `docs/03-requisitos/03-rate-limiting.md`.
+
 Politica aplicada:
 
 - Endpoint publico `POST /api/v1/auth/register/paciente`: 5 solicitudes por minuto por IP.

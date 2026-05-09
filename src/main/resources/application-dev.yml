@@ -25,6 +25,49 @@ keycloak:
 app:
   cors:
     allowed-origin-patterns: ["*"]
+  rate-limiting:
+    public-policies:
+      - id: public-register-paciente
+        method: POST
+        path: /api/v1/auth/register/paciente
+        capacity: 2000
+        window: 1m
+    paciente-policies:
+      - id: paciente-medicos
+        method: GET
+        path: /api/v1/medicos
+        capacity: 600
+        window: 1m
+      - id: paciente-medicos-configuracion
+        method: GET
+        path: /api/v1/medicos/*/configuracion
+        capacity: 300
+        window: 1m
+      - id: paciente-pacientes-id
+        method: GET
+        path: /api/v1/pacientes/*
+        capacity: 300
+        window: 1m
+      - id: paciente-citas-autonomo
+        method: POST
+        path: /api/v1/citas/autonomo
+        capacity: 200
+        window: 1m
+      - id: paciente-disponibilidad-primera
+        method: GET
+        path: /api/v1/citas/disponibilidad/primera
+        capacity: 600
+        window: 1m
+      - id: paciente-disponibilidad-primera-global
+        method: GET
+        path: /api/v1/citas/disponibilidad/primera/global
+        capacity: 300
+        window: 1m
+      - id: paciente-disponibilidad-franjas
+        method: GET
+        path: /api/v1/citas/disponibilidad/franjas
+        capacity: 600
+        window: 1m
 
 logging:
   level:

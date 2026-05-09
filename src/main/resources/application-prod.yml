@@ -24,3 +24,46 @@ app:
     # TODO: definir dominios frontend reales antes de desplegar.
     # Ejemplo: ["https://app.piedrazul.com", "https://admin.piedrazul.com"]
     allowed-origins: []
+  rate-limiting:
+    public-policies:
+      - id: public-register-paciente
+        method: POST
+        path: /api/v1/auth/register/paciente
+        capacity: 5
+        window: 1m
+    paciente-policies:
+      - id: paciente-medicos
+        method: GET
+        path: /api/v1/medicos
+        capacity: 60
+        window: 1m
+      - id: paciente-medicos-configuracion
+        method: GET
+        path: /api/v1/medicos/*/configuracion
+        capacity: 30
+        window: 1m
+      - id: paciente-pacientes-id
+        method: GET
+        path: /api/v1/pacientes/*
+        capacity: 30
+        window: 1m
+      - id: paciente-citas-autonomo
+        method: POST
+        path: /api/v1/citas/autonomo
+        capacity: 10
+        window: 1m
+      - id: paciente-disponibilidad-primera
+        method: GET
+        path: /api/v1/citas/disponibilidad/primera
+        capacity: 60
+        window: 1m
+      - id: paciente-disponibilidad-primera-global
+        method: GET
+        path: /api/v1/citas/disponibilidad/primera/global
+        capacity: 30
+        window: 1m
+      - id: paciente-disponibilidad-franjas
+        method: GET
+        path: /api/v1/citas/disponibilidad/franjas
+        capacity: 60
+        window: 1m
