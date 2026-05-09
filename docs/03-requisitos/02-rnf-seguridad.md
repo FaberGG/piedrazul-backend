@@ -10,6 +10,30 @@ Implementacion base observada en `SecurityConfig`:
 - Endpoints publicos restringidos a `POST /api/v1/auth/register/paciente` y Swagger.
 - Respuesta uniforme de no autorizado: `{"error":"No autorizado"}`.
 
+## Rate limiting
+
+Se implemento limitacion de tasa a nivel de filtro de seguridad para endpoints publicos y aquellos donde `PACIENTE` tiene acceso. Los limites se configuran en `src/main/resources/application.yml` bajo `app.rate-limiting`.
+
+Politica aplicada:
+
+- Endpoint publico `POST /api/v1/auth/register/paciente`: 5 solicitudes por minuto por IP.
+- Endpoints con rol `PACIENTE` (clave por `sub` del JWT, con fallback a IP):
+  - `GET /api/v1/medicos`: 60 solicitudes por minuto.
+  - `GET /api/v1/medicos/*/configuracion`: 30 solicitudes por minuto.
+  - `GET /api/v1/pacientes/*`: 30 solicitudes por minuto.
+  - `POST /api/v1/citas/autonomo`: 10 solicitudes por minuto.
+  - `GET /api/v1/citas/disponibilidad/primera`: 60 solicitudes por minuto.
+  - `GET /api/v1/citas/disponibilidad/primera/global`: 30 solicitudes por minuto.
+  - `GET /api/v1/citas/disponibilidad/franjas`: 60 solicitudes por minuto.
+
+Respuesta cuando se excede el limite:
+
+- HTTP `429 Too Many Requests`
+- Header `Retry-After` con segundos aproximados para reintentar.
+- Body: `{"error":"Rate limit excedido"}`
+
+Nota: si el request es autenticado pero no tiene rol `PACIENTE`, no aplica esta politica.
+
 ## Control por roles (RBAC)
 
 Roles usados en el proyecto:
@@ -58,4 +82,3 @@ Controles funcionales relevantes ya implementados:
 - **Recomendado:** externalizar secretos con variables de entorno en todos los entornos.
 - **Recomendado:** endurecer politica de registro admin en entornos no locales.
 - **Recomendado:** mantener control de permisos minimos para el service account de Keycloak (`manage-users`) y rotar `client-secret`.
-

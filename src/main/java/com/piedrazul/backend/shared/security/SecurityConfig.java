@@ -22,6 +22,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+
+import java.time.Duration;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,6 +37,7 @@ import java.util.stream.Collectors;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@EnableConfigurationProperties(RateLimitingProperties.class)
 public class SecurityConfig {
 
     private final AppCorsProperties corsProperties;
@@ -42,7 +47,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, RateLimitingFilter rateLimitingFilter) {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
@@ -62,7 +67,8 @@ public class SecurityConfig {
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
-                );
+                )
+                .addFilterBefore(rateLimitingFilter, AuthorizationFilter.class);
 
         return http.build();
     }
@@ -150,6 +156,37 @@ public class SecurityConfig {
     public JwtDecoder jwtDecoder(
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri) {
         return JwtDecoders.fromIssuerLocation(issuerUri);
+    }
+
+    @Bean
+    public RateLimitingFilter rateLimitingFilter(RateLimitingProperties properties) {
+        List<RateLimitingFilter.RateLimitPolicy> publicPolicies = properties.getPublicPolicies().stream()
+                .map(policy -> toPolicy(policy, true))
+                .toList();
+
+        List<RateLimitingFilter.RateLimitPolicy> pacientePolicies = properties.getPacientePolicies().stream()
+                .map(policy -> toPolicy(policy, false))
+                .toList();
+
+        return new RateLimitingFilter(publicPolicies, pacientePolicies);
+    }
+
+    private RateLimitingFilter.RateLimitPolicy toPolicy(RateLimitingProperties.Policy policy, boolean isPublic) {
+        HttpMethod method = HttpMethod.valueOf(policy.getMethod().toUpperCase(Locale.ROOT));
+        if (isPublic) {
+            return RateLimitingFilter.RateLimitPolicy.publicPolicy(
+                    policy.getId(),
+                    method,
+                    policy.getPath(),
+                    policy.getCapacity(),
+                    policy.getWindow());
+        }
+        return RateLimitingFilter.RateLimitPolicy.pacientePolicy(
+                policy.getId(),
+                method,
+                policy.getPath(),
+                policy.getCapacity(),
+                policy.getWindow());
     }
 
 }
