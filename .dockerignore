@@ -1,0 +1,12 @@
+.git/
+.gitignore
+*.iml
+.idea/
+.vscode/
+.env*
+*.log
+*.tmp
+**/target/
+**/build/
+
+

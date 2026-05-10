@@ -273,20 +273,17 @@ Documento de respaldo: [`03-requisitos/02-rnf-seguridad.md`](docs/03-requisitos/
 cp .env.dev.example .env.dev
 ```
 
-2. Levantar infraestructura local:
+2. Levantar infraestructura + backend (Docker Compose):
 
 ```bash
-docker compose --env-file .env.dev up -d
+docker compose --env-file .env.dev up -d --build
 docker ps
 ```
 
-3. Ejecutar el backend (cargando variables de `.env.dev` en la sesion actual):
+3. Ver logs del backend (opcional):
 
 ```bash
-set -a
-source .env.dev
-set +a
-./mvnw spring-boot:run
+docker compose --env-file .env.dev logs -f backend
 ```
 
 Notas:
