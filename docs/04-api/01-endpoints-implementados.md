@@ -581,6 +581,8 @@ Content-Type: application/json
 
 - Response `200`:
 
+---
+
 ```json
 {
   "desde": "2026-03-01",
@@ -592,6 +594,39 @@ Content-Type: application/json
   "porcentajeOcupacion": 0.0
 }
 ```
+### `GET /reportes/citas/reporteDiario`
+
+- Estado: Implementado
+- Auth requerida: Si
+- Roles requeridos: `AGENDADOR`, `ADMIN`, `MEDICO`, `TERAPISTA`
+- Path params: No aplica
+- Query params:
+
+```json
+{
+  "dia": "2026-05-10",
+  "medicoId": 1,
+  "exportFormat": "CSV"
+}
+```
+
+- Response `200`: Archivo `.csv` descargable
+
+---
+
+### `GET /reportes/formatos`
+
+- Estado: Implementado
+- Auth requerida: Si
+- Roles requeridos: `AGENDADOR`, `ADMIN`, `MEDICO`, `TERAPISTA`
+- Path params: No aplica
+- Query params: No aplica
+- Response `200`:
+
+```json
+["CSV", "PDF"]
+```
+
 
 ## Configuracion de Agenda
 
