@@ -10,6 +10,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Controller de reportes y estadísticas.
@@ -48,5 +50,11 @@ public class ReporteController {
         headers.set("Content-Type", exportResult.getContentType());
 
         return ResponseEntity.ok().headers(headers).body(exportResult.getData());
+    }
+
+    @GetMapping("/formatos")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'ADMIN', 'MEDICO', 'TERAPISTA')")
+    public ResponseEntity<List<ExportFormat>> getExportFormatos(){
+        return ResponseEntity.ok(Arrays.asList(ExportFormat.values()));
     }
 }
