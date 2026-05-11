@@ -194,6 +194,8 @@ Base URL: `http://localhost:8080/api/v1`
 | Metodo | Endpoint | Roles | Estado |
 | --- | --- | --- | --- |
 | GET | `/reportes/citas` | `AGENDADOR`, `ADMIN` | Implementado |
+| GET | `/reportes/citas/reporteDiario` | `AGENDADOR`, `ADMIN`, `MEDICO`, `TERAPISTA` | Implementado |
+| GET | `/reportes/formatos` | `AGENDADOR`, `ADMIN`, `MEDICO`, `TERAPISTA` | Implementado |
 
 ### Configuracion de Agenda
 
