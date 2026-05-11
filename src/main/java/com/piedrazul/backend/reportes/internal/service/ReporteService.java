@@ -1,8 +1,13 @@
 package com.piedrazul.backend.reportes.internal.service;
 
 import com.piedrazul.backend.agenda.api.AgendaApi;
+import com.piedrazul.backend.agenda.api.dto.AgendaDiaDto;
 import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
 import com.piedrazul.backend.reportes.internal.dto.ReporteCitasResponse;
+import com.piedrazul.backend.reportes.internal.exporter.AgendaExporter;
+import com.piedrazul.backend.reportes.internal.exporter.AgendaExporterFactory;
+import com.piedrazul.backend.reportes.internal.exporter.ExportFormat;
+import com.piedrazul.backend.reportes.internal.dto.ExportResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +31,7 @@ public class ReporteService {
      * Ver {@link AgendaApi}.
      */
     private final AgendaApi agendaApi;
+    private final AgendaExporterFactory agendaExporterFactory;
 
     /**
      * IntelliJ puede mostrar "Could not autowire" aquí porque
@@ -35,8 +41,9 @@ public class ReporteService {
      * La arquitectura está verificada por {@code ModularityTest}.
      */
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
-    public ReporteService(AgendaApi agendaApi) {
+    public ReporteService(AgendaApi agendaApi, AgendaExporterFactory agendaExporterFactory) {
         this.agendaApi = agendaApi;
+        this.agendaExporterFactory = agendaExporterFactory;
     }
 
     /**
@@ -57,5 +64,21 @@ public class ReporteService {
                 .porcentajeOcupacion(resumen.getPorcentajeOcupacion())
                 .build();
     }
+
+    /**
+     * Genera el binario del reporte diario con patron strategy.
+     *
+     * @param dia es la fecha selecionada para el reporte.
+     * @param medicoId es el medico para filtrar el reporte.
+     * @param exportFormat es el tipo the formato que se usará determinado por factory,
+     * según el tipo de archivo solicitado.
+     * @return reporte segun medico y fecha en binario especifico.
+     */
+    public ExportResult generarReporteDiario(LocalDate dia, Long medicoId, ExportFormat exportFormat) {
+        AgendaDiaDto agendaDiaDto = agendaApi.obtenerAgendaDia(dia, medicoId);
+        AgendaExporter agendaExporter = agendaExporterFactory.getAgendaExporter(exportFormat);
+        return new ExportResult(agendaExporter.export(agendaDiaDto), agendaExporter.getContentType());
+    }
+
 }
 

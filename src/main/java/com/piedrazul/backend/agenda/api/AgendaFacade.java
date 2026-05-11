@@ -1,12 +1,14 @@
 package com.piedrazul.backend.agenda.api;
 
+import com.piedrazul.backend.agenda.api.dto.AgendaDiaDto;
+import com.piedrazul.backend.agenda.api.dto.CitaDiaDto;
 import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
+import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.service.CitaService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-
 /**
  * Implementación de la API pública del módulo AGENDA.
  *
@@ -33,17 +35,34 @@ public class AgendaFacade implements AgendaApi {
         this.citaService = citaService;
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // AgendaApi — implementación // llamado a la capa de servicios
-    // ─────────────────────────────────────────────────────────────
-
     @Override
     public ResumenCitasDto obtenerResumenCitas(LocalDate desde, LocalDate hasta) {
-       return  citaService.obtenerResumenCitas(desde, hasta);
+        return citaService.obtenerResumenCitas(desde, hasta);
     }
 
     @Override
     public boolean tieneCitasFuturas(Long pacienteId) {
         return citaService.tieneCitasFuturas(pacienteId);
+    }
+
+    @Override
+    public AgendaDiaDto obtenerAgendaDia(LocalDate dia, Long medicoId) {
+        AgendaResponse agenda = citaService.listarAgendaMedico(medicoId, dia);
+        return AgendaDiaDto.builder()
+                .medicoId(agenda.getMedicoId())
+                .medicoNombre(agenda.getMedicoNombre())
+                .especialidad(agenda.getEspecialidad())
+                .fecha(agenda.getFecha())
+                .citas(agenda.getCitas().stream()
+                        .map(cita -> CitaDiaDto.builder()
+                                .pacienteNombre(cita.getPacienteNombre())
+                                .pacienteDocumento(cita.getPacienteDocumento())
+                                .fecha(cita.getFecha())
+                                .hora(cita.getHora())
+                                .estado(cita.getEstado())
+                                .observaciones(cita.getObservaciones())
+                                .build())
+                        .toList())
+                .build();
     }
 }
