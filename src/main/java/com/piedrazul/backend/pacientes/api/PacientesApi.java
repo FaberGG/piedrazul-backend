@@ -18,4 +18,3 @@ public interface PacientesApi {
 
     PacienteResumenDTO buscarPorUsuarioId(UUID usuarioId);
 }
-

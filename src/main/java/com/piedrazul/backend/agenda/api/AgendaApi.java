@@ -1,5 +1,6 @@
 package com.piedrazul.backend.agenda.api;
 
+import com.piedrazul.backend.agenda.api.dto.AgendaDiaDto;
 import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
 
 import java.time.LocalDate;
@@ -42,5 +43,14 @@ public interface AgendaApi {
      * @return {@code true} si tiene al menos una cita futura no cancelada
      */
     boolean tieneCitasFuturas(Long pacienteId);
+
+    /**
+     * Entrega la data necesaria para las citas de un médico por dia.
+     *
+     * @param dia fecha selecionada para las citas programadas.
+     * @param medicoId medico para filtrar las citas.
+     * @return información condensada para la lista del medico por dia.
+     */
+    AgendaDiaDto obtenerAgendaDia(LocalDate dia, Long medicoId);
 }
 

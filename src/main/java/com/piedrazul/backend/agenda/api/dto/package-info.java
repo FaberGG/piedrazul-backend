@@ -11,4 +11,3 @@
  */
 @org.springframework.modulith.NamedInterface("dto")
 package com.piedrazul.backend.agenda.api.dto;
-
