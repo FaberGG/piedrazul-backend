@@ -5,7 +5,7 @@ import com.piedrazul.backend.agenda.api.dto.CitaDiaDto;
 import org.springframework.stereotype.Component;
 
 @Component
-public class CsvAgendaExporter extends AgendaExporter {
+public class CsvAgendaExporter implements AgendaExporter {
 
     @Override
     public byte[] export(AgendaDiaDto agenda) {
