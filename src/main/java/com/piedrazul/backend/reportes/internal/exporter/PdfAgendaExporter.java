@@ -10,7 +10,7 @@ import java.io.ByteArrayOutputStream;
 import java.awt.Color;
 
 @Component
-public class PdfAgendaExporter extends AgendaExporter {
+public class PdfAgendaExporter implements AgendaExporter {
 
     @Override
     public byte[] export(AgendaDiaDto agenda) {

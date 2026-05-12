@@ -79,6 +79,5 @@ public class ReporteService {
         AgendaExporter agendaExporter = agendaExporterFactory.getAgendaExporter(exportFormat);
         return new ExportResult(agendaExporter.export(agendaDiaDto), agendaExporter.getContentType());
     }
-
 }
 
