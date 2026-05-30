@@ -1,12 +1,14 @@
-version: "3.9"
 
 services:
 
   postgres:
     image: postgres:15-alpine
     container_name: piedrazul_db
-    env_file:
-      - ./.env.dev
+    environment:
+      # PostgreSQL del stack Docker
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5433:5432"
     volumes:
@@ -22,8 +24,10 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: piedrazul_pgadmin
-    env_file:
-      - ./.env.dev
+    environment:
+      # Credenciales para la UI de administración
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
     ports:
       - "5050:80"
     depends_on:
@@ -37,20 +41,19 @@ services:
     # --import-realm: importa automáticamente los JSON de /opt/keycloak/data/import
     # --db: usa PostgreSQL como backend
     command: start-dev --import-realm --db=postgres
-    env_file:
-      - ./.env.dev
     environment:
-      # Conexión a PostgreSQL - misma instancia, distinta DB
+      # Conexión de Keycloak a PostgreSQL
       KC_DB: postgres
-      # Puerto interno
+      KC_DB_URL: ${KC_DB_URL}
+      KC_DB_USERNAME: ${KC_DB_USERNAME}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      # Host y salud de Keycloak
       KC_HTTP_PORT: 8080
-      # Hostname (para dev sin TLS)
-      KC_HOSTNAME: keycloak
-      KC_HOSTNAME_PORT: 8080
-      KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME_STRICT_HTTPS: "false"
-      # Habilita endpoint de salud para readiness
-      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: ${KC_HOSTNAME:-keycloak}
+      KC_HOSTNAME_PORT: ${KC_HOSTNAME_PORT:-8080}
+      KC_HOSTNAME_STRICT: ${KC_HOSTNAME_STRICT:-false}
+      KC_HOSTNAME_STRICT_HTTPS: ${KC_HOSTNAME_STRICT_HTTPS:-false}
+      KC_HEALTH_ENABLED: ${KC_HEALTH_ENABLED:-true}
     volumes:
       - ./docker/keycloak:/opt/keycloak/data/import
     ports:
@@ -70,16 +73,19 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: piedrazul_backend
-    env_file:
-      - ./.env.dev
     environment:
+      # Spring Boot dentro de Docker Compose prioriza los servicios del stack
+      # y sobrescribe los valores de `.env.dev` para no usar localhost dentro del contenedor.
       SPRING_PROFILES_ACTIVE: dev
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      OAUTH2_ISSUER_URI: http://keycloak:8080/realms/piedrazul
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/piedrazul_dev
+      SPRING_DATASOURCE_USERNAME: piedrazul_user
+      SPRING_DATASOURCE_PASSWORD: piedrazul_pass
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/piedrazul
+      # Configuración de Keycloak consumida por la app
       KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_REALM: piedrazul
+      KEYCLOAK_CLIENT_ID: piedrazul-backend
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
     ports:
       - "8080:8080"
     depends_on:

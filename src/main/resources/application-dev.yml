@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5433/piedrazul_dev?currentSchema=public}
-    username: ${DB_USERNAME:piedrazul_user}
-    password: ${DB_PASSWORD:piedrazul_pass}
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -10,16 +10,16 @@ spring:
     show-sql: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
   security:
-      oauth2:
-        resourceserver:
-          jwt:
-            issuer-uri: ${OAUTH2_ISSUER_URI:http://localhost:8180/realms/piedrazul}
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI}
 keycloak:
   admin:
-    server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
+    server-url: ${KEYCLOAK_SERVER_URL}
     realm: ${KEYCLOAK_REALM:piedrazul}
-    client-id: ${KEYCLOAK_CLIENT_ID:piedrazul-backend}
-    client-secret: ${KEYCLOAK_CLIENT_SECRET:X7Ef99AJnumJQlqArO919NCTT4O63RaP}
+    client-id: ${KEYCLOAK_CLIENT_ID}
+    client-secret: ${KEYCLOAK_CLIENT_SECRET}
 
 
 app:
