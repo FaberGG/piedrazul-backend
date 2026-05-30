@@ -20,7 +20,8 @@ Esta guia centraliza la configuracion y el flujo operativo de autenticacion para
 Fuente local recomendada: `.env.dev`.
 
 ```dotenv
-OAUTH2_ISSUER_URI=http://localhost:8180/realms/piedrazul
+# Use the canonical environment variable name used by the application and docker-compose
+SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://localhost:8180/realms/piedrazul
 KEYCLOAK_SERVER_URL=http://localhost:8180
 KEYCLOAK_REALM=piedrazul
 KEYCLOAK_CLIENT_ID=piedrazul-backend
@@ -94,7 +95,7 @@ Nota: registrar paciente usa `documento` como username interno y no requiere cam
 - Si `@PreAuthorize("hasRole('ADMIN')")` falla con token valido:
   - Verificar que el JWT incluya `ADMIN` en alguno de los claims soportados.
 - Si falla el arranque por `JwtDecoder`:
-  - Confirmar `OAUTH2_ISSUER_URI` correcto y Keycloak disponible.
+  - Confirmar `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI` correcto y Keycloak disponible.
 - Si falla alta de usuario en Keycloak:
   - Confirmar `KEYCLOAK_CLIENT_SECRET` y permisos de service account (`manage-users`).
 
