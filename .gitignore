@@ -38,3 +38,6 @@ build/
 ### Local environment files ###
 .env.dev
 !.env.dev.example
+
+#### Concurrency test reports ####
+scripts/python/concurrency-test/scripts/reports/

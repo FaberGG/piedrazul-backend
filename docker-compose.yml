@@ -78,16 +78,21 @@ services:
     container_name: piedrazul_backend
     env_file:
       - .env.dev
+    extra_hosts:
+      # Allow the backend container to resolve the public Keycloak hostname
+      # used by the browser (nip.io) back to the host-published service.
+      - "auth.127.0.0.1.nip.io:host-gateway"
     environment:
-      # Spring Boot dentro de Docker Compose prioriza los servicios del stack
-      # y sobrescribe los valores de `.env.dev` para no usar localhost dentro del contenedor.
-      SPRING_PROFILES_ACTIVE: dev
+      # Spring Boot variables loaded from .env.dev (via env_file above)
+      # These defaults are used only if a variable is not defined in .env.dev.
+      # Priority: .env.dev > these defaults > missing (error)
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/piedrazul_dev}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-piedrazul_user}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-piedrazul_pass}
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:-http://keycloak:8180/realms/piedrazul}
-      # Configuración de Keycloak consumida por la app
-      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://keycloak:8180}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:-http://auth.127.0.0.1.nip.io:8180/realms/piedrazul}
+      # Keycloak client configuration consumed by the app
+      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://auth.127.0.0.1.nip.io:8180}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-piedrazul}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-piedrazul-backend}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
