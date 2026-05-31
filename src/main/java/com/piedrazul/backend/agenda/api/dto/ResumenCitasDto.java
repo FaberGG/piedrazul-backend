@@ -25,7 +25,6 @@ public class ResumenCitasDto {
     private LocalDate hasta;
     private long totalCitas;
     private long citasProgramadas;
-    private long citasConfirmadas;
     private long citasAtendidas;
     private long citasCanceladas;
     /** Porcentaje de slots ocupados respecto al total disponible en el rango. */
