@@ -13,7 +13,7 @@ import java.util.UUID;
 
 /**
  * Entidad Cita médica.
- * Estados: PROGRAMADA, CONFIRMADA, ATENDIDA, CANCELADA
+ * Estados activos: PROGRAMADA, ATENDIDA, CANCELADA
  * Constraint único: (medico_id, fecha, hora) donde estado != CANCELADA
  */
 @Entity
