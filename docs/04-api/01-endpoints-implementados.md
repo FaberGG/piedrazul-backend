@@ -378,7 +378,7 @@ Content-Type: application/json
 - Auth requerida: Si
 - Roles requeridos: `AGENDADOR`, `TERAPISTA`, `MEDICO`, `ADMIN`
 - Path params: `id` — ID de la cita
-- Response `200`:
+- Response `200` (lista ordenada del más reciente al más antiguo):
 
 ```json
 [
@@ -717,9 +717,9 @@ Content-Type: application/json
   "desde": "2026-03-01",
   "hasta": "2026-03-31",
   "totalCitas": 25,
+  "citasProgramadas": 12,
   "citasAtendidas": 10,
   "citasCanceladas": 3,
-  "citasProgramadas": 12,
   "porcentajeOcupacion": 0.0
 }
 ```

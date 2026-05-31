@@ -738,8 +738,7 @@ public class CitaServiceImpl implements CitaService {
             if (request.getNuevoEstado() != null) {
                 String actual = cita.getEstado();
                 String nuevo = request.getNuevoEstado();
-                boolean transicionValida = ("PROGRAMADA".equals(actual) && ("ATENDIDA".equals(nuevo) || "CANCELADA".equals(nuevo)))
-                        || ("CONFIRMADA".equals(actual) && ("ATENDIDA".equals(nuevo) || "CANCELADA".equals(nuevo)));
+                boolean transicionValida = "PROGRAMADA".equals(actual) && ("ATENDIDA".equals(nuevo) || "CANCELADA".equals(nuevo));
                 if (!transicionValida) {
                     throw new BusinessRuleException("Transicion de estado no permitida: " + actual + " -> " + nuevo);
                 }
