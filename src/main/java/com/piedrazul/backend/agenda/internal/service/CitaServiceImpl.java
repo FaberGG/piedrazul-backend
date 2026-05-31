@@ -12,9 +12,13 @@ import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
 import com.piedrazul.backend.agenda.internal.domain.AgendaDiaLock;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
+import com.piedrazul.backend.agenda.internal.domain.HistorialCambiosCita;
+import com.piedrazul.backend.agenda.internal.dto.HistorialCambiosCitaResponse;
+import com.piedrazul.backend.agenda.internal.dto.ReagendarCitaRequest;
 import com.piedrazul.backend.agenda.internal.event.AgendaDinamicaChangedEvent;
 import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
+import com.piedrazul.backend.agenda.internal.repository.HistorialCambiosCitaRepository;
 import com.piedrazul.backend.auth.api.AuthApi;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
@@ -73,6 +77,7 @@ public class CitaServiceImpl implements CitaService {
 
         private final CitaRepository citaRepository;
         private final AgendaDiaLockRepository agendaDiaLockRepository;
+        private final HistorialCambiosCitaRepository historialRepository;
         private final DisponibilidadService disponibilidadService;
         private final PacientesApi pacientesApi;
         private final MedicosApi medicosApi;
@@ -82,6 +87,7 @@ public class CitaServiceImpl implements CitaService {
 
         public CitaServiceImpl(CitaRepository citaRepository,
                                AgendaDiaLockRepository agendaDiaLockRepository,
+                               HistorialCambiosCitaRepository historialRepository,
                                DisponibilidadService disponibilidadService,
                                PacientesApi pacientesApi,
                                MedicosApi medicosApi,
@@ -90,6 +96,7 @@ public class CitaServiceImpl implements CitaService {
                                ApplicationEventPublisher eventPublisher) {
             this.citaRepository = citaRepository;
             this.agendaDiaLockRepository = agendaDiaLockRepository;
+            this.historialRepository = historialRepository;
             this.disponibilidadService = disponibilidadService;
             this.pacientesApi = pacientesApi;
             this.medicosApi = medicosApi;
@@ -552,6 +559,107 @@ public class CitaServiceImpl implements CitaService {
             } catch (DataIntegrityViolationException ex) {
                 throw conflictoSlotOcupado();
             }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // RF8 — Reagendar cita atendida como seguimiento
+        // ─────────────────────────────────────────────────────────────
+
+        @Override
+        public CitaResponse reagendarCita(Long citaId, ReagendarCitaRequest request) {
+            try {
+                Cita cita = citaRepository.findById(citaId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Cita", citaId));
+
+                // Solo las citas ya atendidas se pueden reagendar como seguimiento
+                if (!"ATENDIDA".equals(cita.getEstado())) {
+                    throw new BusinessRuleException("Solo se pueden reagendar citas que ya fueron atendidas");
+                }
+
+                Long medicoId = request.getMedicoNuevoId() != null
+                        ? request.getMedicoNuevoId()
+                        : cita.getMedicoId();
+
+                adquirirBloqueoOptimistaAgenda(medicoId, request.getNuevaFecha());
+
+                LocalTime nuevaHora = parseHora(request.getNuevaHora());
+
+                if (!disponibilidadService.estaDisponible(medicoId, request.getNuevaFecha(), nuevaHora)) {
+                    throw new BusinessRuleException("El horario solicitado no esta disponible");
+                }
+
+                UUID usuarioId = obtenerUsuarioIdAutenticado();
+
+                // Guardar historial antes de mutar la cita
+                historialRepository.save(
+                        HistorialCambiosCita.builder()
+                                .cita(cita)
+                                .fechaAnterior(cita.getFecha())
+                                .horaAnterior(cita.getHora())
+                                .medicoAnteriorId(cita.getMedicoId())
+                                .fechaNueva(request.getNuevaFecha())
+                                .horaNueva(nuevaHora)
+                                .medicoNuevoId(medicoId)
+                                .motivo(request.getMotivo())
+                                .modificadoPor(usuarioId)
+                                .build()
+                );
+
+                LocalDate fechaAnterior = cita.getFecha();
+
+                cita.setFecha(request.getNuevaFecha());
+                cita.setHora(nuevaHora);
+                cita.setMedicoId(medicoId);
+                cita.setEstado("PROGRAMADA");
+
+                Cita guardada = citaRepository.save(cita);
+
+                auditService.registrar(
+                        usuarioId,
+                        "REPROGRAMAR",
+                        "CITA",
+                        guardada.getId(),
+                        "{\"fechaAnterior\":\"" + fechaAnterior + "\",\"horaNueva\":\"" + nuevaHora + "\",\"motivo\":\"" + request.getMotivo() + "\"}",
+                        "N/A"
+                );
+
+                // Notificar ambas fechas al panel en tiempo real
+                publicarCambioAgenda(guardada.getMedicoId(), fechaAnterior, guardada.getId(), "CITA_REAGENDADA_ORIGEN");
+                publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_REAGENDADA_DESTINO");
+
+                PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(guardada.getPacienteId());
+                MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(guardada.getMedicoId());
+
+                return mapToResponse(guardada, paciente, medico);
+
+            } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
+                throw conflictoConcurrencia();
+            } catch (DataIntegrityViolationException ex) {
+                throw conflictoSlotOcupado();
+            }
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<HistorialCambiosCitaResponse> obtenerHistorialCambios(Long citaId) {
+            if (!citaRepository.existsById(citaId)) {
+                throw new ResourceNotFoundException("Cita", citaId);
+            }
+            return historialRepository.findByCitaIdOrderByCreatedAtDesc(citaId)
+                    .stream()
+                    .map(h -> HistorialCambiosCitaResponse.builder()
+                            .id(h.getId())
+                            .fechaAnterior(h.getFechaAnterior())
+                            .horaAnterior(h.getHoraAnterior())
+                            .medicoAnteriorId(h.getMedicoAnteriorId())
+                            .fechaNueva(h.getFechaNueva())
+                            .horaNueva(h.getHoraNueva())
+                            .medicoNuevoId(h.getMedicoNuevoId())
+                            .motivo(h.getMotivo())
+                            .modificadoPor(h.getModificadoPor())
+                            .creadoEn(h.getCreatedAt())
+                            .build())
+                    .toList();
         }
 
         private void publicarCambioAgenda(Long medicoId, LocalDate fecha, Long citaId, String accion) {
