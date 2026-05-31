@@ -1,6 +1,7 @@
 package com.piedrazul.backend.pacientes.internal.service;
 
 import com.piedrazul.backend.pacientes.api.PacientesApi;
+import com.piedrazul.backend.pacientes.api.dto.ActualizarPacienteDTO;
 import com.piedrazul.backend.pacientes.api.dto.PacienteResumenDTO;
 import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
 import com.piedrazul.backend.pacientes.internal.domain.Paciente;
@@ -90,6 +91,20 @@ public class PacientesFacade implements PacientesApi {
         return toResumen(paciente);
     }
 
+    @Override
+    public PacienteResumenDTO actualizarDatosPaciente(Long pacienteId, ActualizarPacienteDTO datos) {
+        Paciente paciente = pacientesRepository.findById(pacienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente", pacienteId));
+
+        if (datos.getNombres() != null) paciente.setNombres(NombreNormalizadorUtil.normalizar(datos.getNombres()));
+        if (datos.getApellidos() != null) paciente.setApellidos(NombreNormalizadorUtil.normalizar(datos.getApellidos()));
+        if (datos.getDocumento() != null) paciente.setDocumento(datos.getDocumento().trim());
+        if (datos.getCelular() != null) paciente.setCelular(datos.getCelular().trim());
+        if (datos.getCorreo() != null) paciente.setCorreo(datos.getCorreo().trim().toLowerCase());
+
+        return toResumen(pacientesRepository.save(paciente));
+    }
+
     private PacienteResumenDTO toResumen(Paciente paciente) {
         return PacienteResumenDTO.builder()
                 .id(paciente.getId())
@@ -97,6 +112,7 @@ public class PacientesFacade implements PacientesApi {
                 .nombres(paciente.getNombres())
                 .apellidos(paciente.getApellidos())
                 .celular(paciente.getCelular())
+                .correo(paciente.getCorreo())
                 .build();
     }
 }

@@ -7,6 +7,8 @@ import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
+import com.piedrazul.backend.agenda.internal.dto.ActualizarCitaRequest;
+import com.piedrazul.backend.agenda.internal.dto.CitaDetalleResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
 import com.piedrazul.backend.agenda.internal.dto.HistorialCambiosCitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
@@ -115,6 +117,22 @@ public interface CitaService {
      * @return lista de cambios ordenada del más reciente al más antiguo
      */
     List<HistorialCambiosCitaResponse> obtenerHistorialCambios(Long citaId);
+
+    /**
+     * Devuelve el detalle completo de una cita incluyendo datos del paciente
+     * y si es la primera cita del paciente en el sistema.
+     */
+    CitaDetalleResponse obtenerDetalleCita(Long citaId);
+
+    /**
+     * Actualiza el estado, observaciones y/o datos del paciente de una cita.
+     * ADMIN puede actualizar cualquier cita.
+     * MEDICO solo puede actualizar la primera cita de un paciente.
+     *
+     * @param citaId  ID de la cita a actualizar
+     * @param request campos a modificar (todos opcionales, al menos uno requerido)
+     */
+    CitaResponse actualizarCita(Long citaId, ActualizarCitaRequest request);
 }
 
 

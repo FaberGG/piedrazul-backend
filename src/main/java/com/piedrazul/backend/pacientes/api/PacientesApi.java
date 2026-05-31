@@ -1,5 +1,6 @@
 package com.piedrazul.backend.pacientes.api;
 
+import com.piedrazul.backend.pacientes.api.dto.ActualizarPacienteDTO;
 import com.piedrazul.backend.pacientes.api.dto.PacienteResumenDTO;
 import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
 
@@ -17,4 +18,6 @@ public interface PacientesApi {
     PacienteResumenDTO obtenerResumenPorId(Long pacienteId);
 
     PacienteResumenDTO buscarPorUsuarioId(UUID usuarioId);
+
+    PacienteResumenDTO actualizarDatosPaciente(Long pacienteId, ActualizarPacienteDTO datos);
 }
