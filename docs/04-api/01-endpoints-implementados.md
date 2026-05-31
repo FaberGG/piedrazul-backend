@@ -189,11 +189,12 @@ Content-Type: application/json
 
 ### `POST /citas/autonomo` (RF3)
 
-- Estado: Definido (servicio pendiente)
+- Estado: Implementado
 - Auth requerida: Si
 - Rol requerido: `PACIENTE`
 - Query params: No aplica
 - Path params: No aplica
+- Validaciones: bloquea si el paciente ya tiene una cita PROGRAMADA futura; límite de 3 citas futuras activas
 - Body:
 
 ```json
@@ -205,7 +206,7 @@ Content-Type: application/json
 }
 ```
 
-- Response esperada al completar implementacion (`201`):
+- Response `201`:
 
 ```json
 {
@@ -336,6 +337,134 @@ Content-Type: application/json
   "observaciones": "Sobrecupo autorizado"
 }
 ```
+
+### `PATCH /citas/{id}/reagendar` (RF8)
+
+- Estado: Implementado
+- Auth requerida: Si
+- Roles requeridos: `AGENDADOR`, `TERAPISTA`, `MEDICO`, `ADMIN`
+- Path params: `id` — ID de la cita a reagendar
+- Validaciones: solo citas en estado `ATENDIDA`; nuevo slot debe estar disponible
+- Body:
+
+```json
+{
+  "nuevaFecha": "2026-07-15",
+  "nuevaHora": "09:00:00",
+  "motivo": "Seguimiento post-consulta",
+  "medicoNuevoId": null
+}
+```
+
+- Response `200` (cita con estado PROGRAMADA en nueva fecha):
+
+```json
+{
+  "id": 101,
+  "pacienteNombre": "Juan Carlos Perez",
+  "pacienteDocumento": "1234567890",
+  "medicoNombre": "Clara Ines Cordoba",
+  "especialidad": "TERAPIA_NEURAL",
+  "fecha": "2026-07-15",
+  "hora": "09:00:00",
+  "estado": "PROGRAMADA",
+  "observaciones": "Dolor lumbar cronico"
+}
+```
+
+### `GET /citas/{id}/historial` (RF8)
+
+- Estado: Implementado
+- Auth requerida: Si
+- Roles requeridos: `AGENDADOR`, `TERAPISTA`, `MEDICO`, `ADMIN`
+- Path params: `id` — ID de la cita
+- Response `200`:
+
+```json
+[
+  {
+    "id": 1,
+    "fechaAnterior": "2026-06-10",
+    "horaAnterior": "08:00:00",
+    "medicoAnteriorId": 1,
+    "fechaNueva": "2026-07-15",
+    "horaNueva": "09:00:00",
+    "medicoNuevoId": 1,
+    "motivo": "Seguimiento post-consulta",
+    "modificadoPor": "uuid-del-usuario",
+    "creadoEn": "2026-06-10T14:35:00"
+  }
+]
+```
+
+### `GET /citas/{id}`
+
+- Estado: Implementado
+- Auth requerida: Si
+- Roles requeridos: `AGENDADOR`, `TERAPISTA`, `MEDICO`, `ADMIN`
+- Path params: `id` — ID de la cita
+- Nota: `esPrimeraCita` es `true` si no existe ninguna cita con ID menor para el mismo paciente
+- Response `200`:
+
+```json
+{
+  "id": 101,
+  "pacienteNombre": "Juan Carlos Perez",
+  "pacienteDocumento": "1234567890",
+  "pacienteCelular": "3001234567",
+  "pacienteCorreo": "juan@email.com",
+  "medicoNombre": "Clara Ines Cordoba",
+  "especialidad": "TERAPIA_NEURAL",
+  "fecha": "2026-06-10",
+  "hora": "08:00:00",
+  "estado": "PROGRAMADA",
+  "observaciones": "Control",
+  "esPrimeraCita": true
+}
+```
+
+### `PATCH /citas/{id}`
+
+- Estado: Implementado
+- Auth requerida: Si
+- Roles requeridos: `MEDICO` (solo primera cita del paciente), `ADMIN` (cualquier cita)
+- Path params: `id` — ID de la cita
+- Todos los campos son opcionales; al menos uno debe estar presente
+- Transiciones de estado permitidas: `PROGRAMADA → ATENDIDA`, `PROGRAMADA → CANCELADA`
+- Body:
+
+```json
+{
+  "nuevoEstado": "ATENDIDA",
+  "nuevasObservaciones": "Paciente con mejoría notable",
+  "pacienteNombres": "Juan Carlos",
+  "pacienteApellidos": "Perez Gomez",
+  "pacienteDocumento": "1234567890",
+  "pacienteCelular": "3001234567",
+  "pacienteCorreo": "juan@email.com"
+}
+```
+
+- Response `200`:
+
+```json
+{
+  "id": 101,
+  "pacienteNombre": "Juan Carlos Perez Gomez",
+  "pacienteDocumento": "1234567890",
+  "medicoNombre": "Clara Ines Cordoba",
+  "especialidad": "TERAPIA_NEURAL",
+  "fecha": "2026-06-10",
+  "hora": "08:00:00",
+  "estado": "ATENDIDA",
+  "observaciones": "Paciente con mejoría notable"
+}
+```
+
+- Errores:
+  - `422` — transición no permitida
+  - `422` — MEDICO intenta modificar cita que no es la primera del paciente
+  - `403` — AGENDADOR sin acceso
 
 ### `GET /citas/disponibilidad/primera`
 

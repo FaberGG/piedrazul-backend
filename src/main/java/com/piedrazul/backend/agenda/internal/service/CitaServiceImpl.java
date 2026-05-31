@@ -515,11 +515,11 @@ public class CitaServiceImpl implements CitaService {
                 }
                 PacienteResumenDTO pacienteResumenDTO = pacientesApi.buscarPorUsuarioId(usuarioId);
 
-                // Bloquear si el paciente ya tiene una cita PROGRAMADA o CONFIRMADA futura.
+                // Bloquear si el paciente ya tiene una cita PROGRAMADA futura.
                 // ATENDIDA y CANCELADA se consideran resueltas y no bloquean nuevas reservas.
                 boolean tieneCitaActiva = citaRepository.existsByPacienteIdAndEstadoInAndFechaGreaterThanEqual(
                         pacienteResumenDTO.getId(),
-                        List.of("PROGRAMADA", "CONFIRMADA"),
+                        List.of("PROGRAMADA"),
                         LocalDate.now()
                 );
                 if (tieneCitaActiva) {
@@ -837,16 +837,24 @@ public class CitaServiceImpl implements CitaService {
 
             if (authentication instanceof JwtAuthenticationToken jwtAuth) {
                 String keycloakUserId = jwtAuth.getToken().getSubject();
+                // Prefer internal DB UUID; fall back to Keycloak subject UUID directly
+                // (covers admin/bootstrap users not registered through the app)
                 return authApi.findByKeycloakId(keycloakUserId)
                         .map(com.piedrazul.backend.auth.api.dto.UsuarioInfoDto::getId)
-                        .orElse(null);
+                        .orElseGet(() -> {
+                            try { return UUID.fromString(keycloakUserId); }
+                            catch (IllegalArgumentException e) { return null; }
+                        });
             }
 
             Object principal = authentication.getPrincipal();
             if (principal instanceof String principalStr) {
                 return authApi.findByKeycloakId(principalStr)
                         .map(com.piedrazul.backend.auth.api.dto.UsuarioInfoDto::getId)
-                        .orElse(null);
+                        .orElseGet(() -> {
+                            try { return UUID.fromString(principalStr); }
+                            catch (IllegalArgumentException e) { return null; }
+                        });
             }
 
             return null;
@@ -1156,23 +1164,21 @@ public class CitaServiceImpl implements CitaService {
 
             List<Object[]> conteos = citaRepository.countByEstadoBetweenFechas(desde, hasta);
 
-            long programadas  = 0;
-            long confirmadas  = 0;
-            long atendidas    = 0;
-            long canceladas   = 0;
+            long programadas = 0;
+            long atendidas   = 0;
+            long canceladas  = 0;
 
             for (Object[] fila : conteos) {
                 String estado = (String) fila[0];
                 long   count  = (Long)   fila[1];
                 switch (estado) {
-                    case "PROGRAMADA"  -> programadas = count;
-                    case "CONFIRMADA"  -> confirmadas  = count;
-                    case "ATENDIDA"    -> atendidas    = count;
-                    case "CANCELADA"   -> canceladas   = count;
+                    case "PROGRAMADA" -> programadas = count;
+                    case "ATENDIDA"   -> atendidas   = count;
+                    case "CANCELADA"  -> canceladas  = count;
                 }
             }
 
-            long total = programadas + confirmadas + atendidas + canceladas;
+            long total = programadas + atendidas + canceladas;
 
             double porcentaje = 0.0;
 
@@ -1181,7 +1187,6 @@ public class CitaServiceImpl implements CitaService {
                     .hasta(hasta)
                     .totalCitas(total)
                     .citasProgramadas(programadas)
-                    .citasConfirmadas(confirmadas)
                     .citasAtendidas(atendidas)
                     .citasCanceladas(canceladas)
                     .porcentajeOcupacion(porcentaje)
