@@ -40,5 +40,8 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
     List<Object[]> countByEstadoBetweenFechas(
             @Param("desde") LocalDate desde,
             @Param("hasta") LocalDate hasta);
+
+    /** Verifica si existe una cita anterior (por ID) del mismo paciente — determina si la cita actual es la primera. */
+    boolean existsByPacienteIdAndIdLessThan(Long pacienteId, Long citaId);
 }
 

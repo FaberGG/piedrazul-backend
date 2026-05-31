@@ -13,8 +13,11 @@ import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse
 import com.piedrazul.backend.agenda.internal.domain.AgendaDiaLock;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
 import com.piedrazul.backend.agenda.internal.domain.HistorialCambiosCita;
+import com.piedrazul.backend.agenda.internal.dto.ActualizarCitaRequest;
+import com.piedrazul.backend.agenda.internal.dto.CitaDetalleResponse;
 import com.piedrazul.backend.agenda.internal.dto.HistorialCambiosCitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.ReagendarCitaRequest;
+import com.piedrazul.backend.pacientes.api.dto.ActualizarPacienteDTO;
 import com.piedrazul.backend.agenda.internal.event.AgendaDinamicaChangedEvent;
 import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
@@ -660,6 +663,108 @@ public class CitaServiceImpl implements CitaService {
                             .creadoEn(h.getCreatedAt())
                             .build())
                     .toList();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Detalle y actualización de cita (panel admin/médico)
+        // ─────────────────────────────────────────────────────────────
+
+        @Override
+        @Transactional(readOnly = true)
+        public CitaDetalleResponse obtenerDetalleCita(Long citaId) {
+            Cita cita = citaRepository.findById(citaId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Cita", citaId));
+
+            PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(cita.getPacienteId());
+            MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(cita.getMedicoId());
+
+            boolean esPrimera = !citaRepository.existsByPacienteIdAndIdLessThan(cita.getPacienteId(), citaId);
+
+            return CitaDetalleResponse.builder()
+                    .id(cita.getId())
+                    .pacienteNombre(paciente.getNombres() + " " + paciente.getApellidos())
+                    .pacienteDocumento(paciente.getDocumento())
+                    .pacienteCelular(paciente.getCelular())
+                    .pacienteCorreo(paciente.getCorreo())
+                    .medicoNombre(medico.getNombresCompletos())
+                    .especialidad(medico.getEspecialidad())
+                    .fecha(cita.getFecha())
+                    .hora(cita.getHora())
+                    .estado(cita.getEstado())
+                    .observaciones(cita.getObservaciones())
+                    .esPrimeraCita(esPrimera)
+                    .build();
+        }
+
+        @Override
+        public CitaResponse actualizarCita(Long citaId, ActualizarCitaRequest request) {
+            Cita cita = citaRepository.findById(citaId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Cita", citaId));
+
+            boolean hayCambiosCita = request.getNuevoEstado() != null || request.getNuevasObservaciones() != null;
+            boolean hayCambiosPaciente = request.getPacienteNombres() != null
+                    || request.getPacienteApellidos() != null
+                    || request.getPacienteDocumento() != null
+                    || request.getPacienteCelular() != null
+                    || request.getPacienteCorreo() != null;
+
+            if (!hayCambiosCita && !hayCambiosPaciente) {
+                throw new BusinessRuleException("Debe especificar al menos un campo a actualizar");
+            }
+
+            // Regla: MEDICO solo puede modificar la primera cita de un paciente
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            boolean esMedico = auth != null && auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_MEDICO"));
+
+            if (esMedico && citaRepository.existsByPacienteIdAndIdLessThan(cita.getPacienteId(), citaId)) {
+                throw new BusinessRuleException("Solo puedes modificar la primera cita de este paciente");
+            }
+
+            // Validar transicion de estado
+            if (request.getNuevoEstado() != null) {
+                String actual = cita.getEstado();
+                String nuevo = request.getNuevoEstado();
+                boolean transicionValida = ("PROGRAMADA".equals(actual) && ("ATENDIDA".equals(nuevo) || "CANCELADA".equals(nuevo)))
+                        || ("CONFIRMADA".equals(actual) && ("ATENDIDA".equals(nuevo) || "CANCELADA".equals(nuevo)));
+                if (!transicionValida) {
+                    throw new BusinessRuleException("Transicion de estado no permitida: " + actual + " -> " + nuevo);
+                }
+                cita.setEstado(nuevo);
+            }
+
+            if (request.getNuevasObservaciones() != null) {
+                cita.setObservaciones(request.getNuevasObservaciones());
+            }
+
+            citaRepository.save(cita);
+
+            if (hayCambiosPaciente) {
+                ActualizarPacienteDTO datosP = new ActualizarPacienteDTO(
+                        request.getPacienteNombres(),
+                        request.getPacienteApellidos(),
+                        request.getPacienteDocumento(),
+                        request.getPacienteCelular(),
+                        request.getPacienteCorreo()
+                );
+                pacientesApi.actualizarDatosPaciente(cita.getPacienteId(), datosP);
+            }
+
+            UUID usuarioId = obtenerUsuarioIdAutenticado();
+            auditService.registrar(
+                    usuarioId,
+                    "ACTUALIZAR",
+                    "CITA",
+                    cita.getId(),
+                    "{\"nuevoEstado\":\"" + request.getNuevoEstado() + "\"}",
+                    "N/A"
+            );
+
+            publicarCambioAgenda(cita.getMedicoId(), cita.getFecha(), citaId, "CITA_ACTUALIZADA");
+
+            PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(cita.getPacienteId());
+            MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(cita.getMedicoId());
+            return mapToResponse(cita, paciente, medico);
         }
 
         private void publicarCambioAgenda(Long medicoId, LocalDate fecha, Long citaId, String accion) {
