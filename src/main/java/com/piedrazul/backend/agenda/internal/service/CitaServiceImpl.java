@@ -836,7 +836,7 @@ public class CitaServiceImpl implements CitaService {
 
             if (authentication instanceof JwtAuthenticationToken jwtAuth) {
                 String keycloakUserId = jwtAuth.getToken().getSubject();
-                // Prefer the internal DB UUID; fall back to the Keycloak subject UUID directly
+                // Prefer internal DB UUID; fall back to Keycloak subject UUID directly
                 // (covers admin/bootstrap users not registered through the app)
                 return authApi.findByKeycloakId(keycloakUserId)
                         .map(com.piedrazul.backend.auth.api.dto.UsuarioInfoDto::getId)
@@ -1163,9 +1163,9 @@ public class CitaServiceImpl implements CitaService {
 
             List<Object[]> conteos = citaRepository.countByEstadoBetweenFechas(desde, hasta);
 
-            long programadas  = 0;
-            long atendidas    = 0;
-            long canceladas   = 0;
+            long programadas = 0;
+            long atendidas   = 0;
+            long canceladas  = 0;
 
             for (Object[] fila : conteos) {
                 String estado = (String) fila[0];

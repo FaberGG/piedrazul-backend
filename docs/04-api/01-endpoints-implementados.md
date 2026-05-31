@@ -344,7 +344,6 @@ Content-Type: application/json
 - Auth requerida: Si
 - Roles requeridos: `AGENDADOR`, `TERAPISTA`, `MEDICO`, `ADMIN`
 - Path params: `id` — ID de la cita a reagendar
-- Query params: No aplica
 - Validaciones: solo citas en estado `ATENDIDA`; nuevo slot debe estar disponible
 - Body:
 
@@ -404,6 +403,7 @@ Content-Type: application/json
 - Auth requerida: Si
 - Roles requeridos: `AGENDADOR`, `TERAPISTA`, `MEDICO`, `ADMIN`
 - Path params: `id` — ID de la cita
+- Nota: `esPrimeraCita` es `true` si no existe ninguna cita con ID menor para el mismo paciente
 - Response `200`:
 
 ```json
@@ -422,8 +422,6 @@ Content-Type: application/json
   "esPrimeraCita": true
 }
 ```
-
-- Nota: `esPrimeraCita` es `true` si no existe ninguna cita con ID menor para el mismo paciente. Usado en frontend para controlar permisos de edición del MEDICO.
 
 ### `PATCH /citas/{id}`
 
