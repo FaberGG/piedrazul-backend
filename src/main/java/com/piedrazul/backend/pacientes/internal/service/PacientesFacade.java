@@ -7,6 +7,7 @@ import com.piedrazul.backend.pacientes.internal.domain.Paciente;
 import com.piedrazul.backend.pacientes.internal.repository.PacientesRepository;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
+import com.piedrazul.backend.shared.util.NombreNormalizadorUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,8 +42,8 @@ public class PacientesFacade implements PacientesApi {
                 Paciente.builder()
                         .usuarioId(request.getUsuarioId())
                         .documento(request.getDocumento())
-                        .nombres(request.getNombres())
-                        .apellidos(request.getApellidos())
+                        .nombres(NombreNormalizadorUtil.normalizar(request.getNombres()))
+                        .apellidos(NombreNormalizadorUtil.normalizar(request.getApellidos()))
                         .celular(request.getCelular())
                         .correo(request.getCorreo())
                         .fechaNacimiento(request.getFechaNacimiento())
@@ -59,8 +60,8 @@ public class PacientesFacade implements PacientesApi {
                 .orElseGet(() -> pacientesRepository.save(
                         Paciente.builder()
                                 .documento(request.getDocumento())
-                                .nombres(request.getNombres())
-                                .apellidos(request.getApellidos())
+                                .nombres(NombreNormalizadorUtil.normalizar(request.getNombres()))
+                                .apellidos(NombreNormalizadorUtil.normalizar(request.getApellidos()))
                                 .celular(request.getCelular())
                                 .correo(request.getCorreo())
                                 .fechaNacimiento(request.getFechaNacimiento())

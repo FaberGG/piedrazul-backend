@@ -505,6 +505,19 @@ public class CitaServiceImpl implements CitaService {
                 }
                 PacienteResumenDTO pacienteResumenDTO = pacientesApi.buscarPorUsuarioId(usuarioId);
 
+                // Bloquear si el paciente ya tiene una cita PROGRAMADA o CONFIRMADA futura.
+                // ATENDIDA y CANCELADA se consideran resueltas y no bloquean nuevas reservas.
+                boolean tieneCitaActiva = citaRepository.existsByPacienteIdAndEstadoInAndFechaGreaterThanEqual(
+                        pacienteResumenDTO.getId(),
+                        List.of("PROGRAMADA", "CONFIRMADA"),
+                        LocalDate.now()
+                );
+                if (tieneCitaActiva) {
+                    throw new BusinessRuleException(
+                            "Ya tienes una cita programada o confirmada. Cancélala antes de agendar una nueva."
+                    );
+                }
+
                 long citasFuturas = citaRepository.countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(pacienteResumenDTO.getId(), "CANCELADA", LocalDate.now());
                 if (citasFuturas >= 3) {
                     throw new BusinessRuleException("Límite de 3 citas alcanzado");
