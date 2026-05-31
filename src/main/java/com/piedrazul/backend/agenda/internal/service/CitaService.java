@@ -8,9 +8,12 @@ import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
+import com.piedrazul.backend.agenda.internal.dto.HistorialCambiosCitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
+import com.piedrazul.backend.agenda.internal.dto.ReagendarCitaRequest;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Contrato interno del servicio de citas (módulo AGENDA).
@@ -92,6 +95,26 @@ public interface CitaService {
      * @return true si tiene al menos una cita futura no cancelada, false de lo contrario.
      */
     boolean tieneCitasFuturas(Long pacienteId);
+
+    /**
+     * RF8 — Reagenda una cita atendida como cita de seguimiento.
+     * Solo citas en estado ATENDIDA pueden ser reagendadas.
+     * Restablece el estado a PROGRAMADA en la nueva fecha/hora.
+     * Persiste el cambio en HistorialCambiosCita.
+     *
+     * @param citaId  ID de la cita a reagendar
+     * @param request nueva fecha, hora, motivo y opcionalmente nuevo médico
+     * @return cita actualizada con estado PROGRAMADA en la nueva fecha
+     */
+    CitaResponse reagendarCita(Long citaId, ReagendarCitaRequest request);
+
+    /**
+     * RF8 — Consulta el historial de reagendamientos de una cita.
+     *
+     * @param citaId ID de la cita
+     * @return lista de cambios ordenada del más reciente al más antiguo
+     */
+    List<HistorialCambiosCitaResponse> obtenerHistorialCambios(Long citaId);
 }
 
 

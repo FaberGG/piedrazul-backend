@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.UUID;
 
 /**
  * Historial de cambios (reagendamientos) de una cita.
@@ -52,7 +53,7 @@ public class HistorialCambiosCita {
     private String motivo;
 
     @Column(name = "modificado_por", nullable = false)
-    private Long modificadoPor;
+    private UUID modificadoPor;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

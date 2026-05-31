@@ -6,7 +6,9 @@ import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
+import com.piedrazul.backend.agenda.internal.dto.HistorialCambiosCitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
+import com.piedrazul.backend.agenda.internal.dto.ReagendarCitaRequest;
 import com.piedrazul.backend.agenda.internal.realtime.AgendaDinamicaSseHub;
 import com.piedrazul.backend.agenda.internal.service.CitaService;
 import com.piedrazul.backend.agenda.internal.service.DisponibilidadService;
@@ -106,5 +108,20 @@ public class CitaController {
     public ResponseEntity<CitaResponse> crearCitaPrioritaria(
             @Valid @RequestBody CrearCitaPrioritariaRequest request) {
         return ResponseEntity.status(201).body(citaService.crearCitaPrioritaria(request));
+    }
+
+    @PatchMapping("/{id}/reagendar")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<CitaResponse> reagendarCita(
+            @PathVariable Long id,
+            @Valid @RequestBody ReagendarCitaRequest request) {
+        return ResponseEntity.ok(citaService.reagendarCita(id, request));
+    }
+
+    @GetMapping("/{id}/historial")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<List<HistorialCambiosCitaResponse>> obtenerHistorial(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(citaService.obtenerHistorialCambios(id));
     }
 }
