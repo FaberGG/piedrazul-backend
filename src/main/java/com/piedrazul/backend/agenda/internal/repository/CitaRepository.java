@@ -23,6 +23,10 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
     long countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(
             Long pacienteId, String estado, LocalDate fecha);
 
+    /** Verifica si el paciente ya tiene una cita activa futura en alguno de los estados indicados (RF3 — bloqueo doble reserva). */
+    boolean existsByPacienteIdAndEstadoInAndFechaGreaterThanEqual(
+            Long pacienteId, List<String> estados, LocalDate fecha);
+
     /** Valida si el medico ya tiene una cita activa en un slot puntual. */
     boolean existsByMedicoIdAndFechaAndHoraAndEstadoNot(
             Long medicoId, LocalDate fecha, LocalTime hora, String estado);
