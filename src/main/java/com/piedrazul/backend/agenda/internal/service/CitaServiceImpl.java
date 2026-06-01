@@ -15,6 +15,7 @@ import com.piedrazul.backend.agenda.internal.domain.Cita;
 import com.piedrazul.backend.agenda.internal.event.AgendaDinamicaChangedEvent;
 import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
+import com.piedrazul.backend.agenda.internal.repository.DiaNoLaboralRepository;
 import com.piedrazul.backend.auth.api.AuthApi;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
@@ -79,6 +80,7 @@ public class CitaServiceImpl implements CitaService {
         private final AuthApi authApi;
         private final AuditService auditService;
         private final ApplicationEventPublisher eventPublisher;
+        private final DiaNoLaboralRepository diaNoLaboralRepository;
 
         public CitaServiceImpl(CitaRepository citaRepository,
                                AgendaDiaLockRepository agendaDiaLockRepository,
@@ -87,7 +89,8 @@ public class CitaServiceImpl implements CitaService {
                                MedicosApi medicosApi,
                                AuthApi authApi,
                                AuditService auditService,
-                               ApplicationEventPublisher eventPublisher) {
+                               ApplicationEventPublisher eventPublisher,
+                               DiaNoLaboralRepository diaNoLaboralRepository) {
             this.citaRepository = citaRepository;
             this.agendaDiaLockRepository = agendaDiaLockRepository;
             this.disponibilidadService = disponibilidadService;
@@ -96,6 +99,7 @@ public class CitaServiceImpl implements CitaService {
             this.authApi = authApi;
             this.auditService = auditService;
             this.eventPublisher = eventPublisher;
+            this.diaNoLaboralRepository = diaNoLaboralRepository;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -205,6 +209,8 @@ public class CitaServiceImpl implements CitaService {
             if (!request.getFecha().isAfter(LocalDate.now())) {
                 throw new BusinessRuleException("La fecha debe ser futura");
             }
+
+            validarNoLaboral(request.getFecha());
 
             try {
                 adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
@@ -364,6 +370,7 @@ public class CitaServiceImpl implements CitaService {
 
         @Override
         public CitaResponse crearCitaPrioritaria(CrearCitaPrioritariaRequest request) {
+            validarNoLaboral(request.getFecha());
             try {
                 adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
 
@@ -496,6 +503,7 @@ public class CitaServiceImpl implements CitaService {
 
         @Override
         public CitaResponse agendarAutonomo(AgendarAutonomoRequest request) {
+            validarNoLaboral(request.getFecha());
             try {
                 adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
 
@@ -912,6 +920,13 @@ public class CitaServiceImpl implements CitaService {
             long minutosDesdeInicio = java.time.Duration.between(horario.getHoraInicio(), hora).toMinutes();
             if (minutosDesdeInicio % horario.getIntervaloMinutos() != 0) {
                 throw new BusinessRuleException("La hora debe respetar el intervalo configurado del medico (" + horario.getIntervaloMinutos() + " minutos)");
+            }
+        }
+
+        private void validarNoLaboral(LocalDate fecha) {
+            if (fecha == null) return;
+            if (diaNoLaboralRepository.existsByFecha(fecha)) {
+                throw new BusinessRuleException("No es posible agendar en un día no laboral");
             }
         }
 
