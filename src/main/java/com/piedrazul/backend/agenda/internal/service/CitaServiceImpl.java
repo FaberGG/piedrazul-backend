@@ -29,7 +29,7 @@ import com.piedrazul.backend.medicos.api.dto.MedicoResumenDTO;
 import com.piedrazul.backend.pacientes.api.PacientesApi;
 import com.piedrazul.backend.pacientes.api.dto.PacienteResumenDTO;
 import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
-import com.piedrazul.backend.shared.audit.AuditService;
+import com.piedrazul.backend.shared.audit.service.AuditService;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import org.hibernate.AssertionFailure;
@@ -270,8 +270,7 @@ public class CitaServiceImpl implements CitaService {
                         "CREAR",
                         "CITA",
                         guardada.getId(),
-                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}",
-                        "N/A"
+                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
                 );
 
                 publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
@@ -474,8 +473,7 @@ public class CitaServiceImpl implements CitaService {
                         "CREAR_PRIORIDAD",
                         "CITA",
                         guardada.getId(),
-                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}",
-                        "N/A"
+                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
                 );
 
                 publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_PRIORIDAD_CREADA");
@@ -563,8 +561,7 @@ public class CitaServiceImpl implements CitaService {
                         "CREAR",
                         "CITA",
                         guardada.getId(),
-                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}",
-                        "N/A"
+                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
                 );
 
                 publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_AUTONOMA_CREADA");
@@ -635,8 +632,7 @@ public class CitaServiceImpl implements CitaService {
                         "REPROGRAMAR",
                         "CITA",
                         guardada.getId(),
-                        "{\"fechaAnterior\":\"" + fechaAnterior + "\",\"horaNueva\":\"" + nuevaHora + "\",\"motivo\":\"" + request.getMotivo() + "\"}",
-                        "N/A"
+                        "{\"fechaAnterior\":\"" + fechaAnterior + "\",\"horaNueva\":\"" + nuevaHora + "\",\"motivo\":\"" + request.getMotivo() + "\"}"
                 );
 
                 // Notificar ambas fechas al panel en tiempo real
@@ -722,16 +718,16 @@ public class CitaServiceImpl implements CitaService {
                     || request.getPacienteCorreo() != null;
 
             if (!hayCambiosCita && !hayCambiosPaciente) {
-                throw new BusinessRuleException("Debe especificar al menos un campo a actualizar");
+                throw new BusinessRuleException("Debe especificar al menos un campo a actualizar.");
             }
 
-            // Regla: MEDICO solo puede modificar la primera cita de un paciente
+            // Regla: MEDICO solo puede modificar datos del paciente en la primera cita
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             boolean esMedico = auth != null && auth.getAuthorities().stream()
                     .anyMatch(a -> a.getAuthority().equals("ROLE_MEDICO"));
 
-            if (esMedico && citaRepository.existsByPacienteIdAndIdLessThan(cita.getPacienteId(), citaId)) {
-                throw new BusinessRuleException("Solo puedes modificar la primera cita de este paciente");
+            if (esMedico && hayCambiosPaciente && citaRepository.existsByPacienteIdAndIdLessThan(cita.getPacienteId(), citaId)) {
+                throw new BusinessRuleException("Solo puedes modificar los datos del paciente en la primera cita.");
             }
 
             // Validar transicion de estado
@@ -768,8 +764,7 @@ public class CitaServiceImpl implements CitaService {
                     "ACTUALIZAR",
                     "CITA",
                     cita.getId(),
-                    "{\"nuevoEstado\":\"" + request.getNuevoEstado() + "\"}",
-                    "N/A"
+                    "{\"nuevoEstado\":\"" + request.getNuevoEstado() + "\"}"
             );
 
             publicarCambioAgenda(cita.getMedicoId(), cita.getFecha(), citaId, "CITA_ACTUALIZADA");
