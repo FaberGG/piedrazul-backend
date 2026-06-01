@@ -14,7 +14,7 @@ import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
 import com.piedrazul.backend.medicos.api.dto.MedicoResumenDTO;
 import com.piedrazul.backend.pacientes.api.PacientesApi;
 import com.piedrazul.backend.pacientes.api.dto.PacienteResumenDTO;
-import com.piedrazul.backend.shared.audit.AuditService;
+import com.piedrazul.backend.shared.audit.service.AuditService;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
