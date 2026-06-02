@@ -133,6 +133,17 @@ public interface CitaService {
      * @param request campos a modificar (todos opcionales, al menos uno requerido)
      */
     CitaResponse actualizarCita(Long citaId, ActualizarCitaRequest request);
+
+    /**
+     * Indica si el paciente autenticado puede agendar un tipo de cita de especialidad.
+     * Requiere al menos una CONSULTA_GENERAL en estado ATENDIDA.
+     */
+    boolean puedeAgendarEspecialidad();
+
+    /**
+     * Lista todas las citas del paciente autenticado, ordenadas por fecha descendente.
+     */
+    List<CitaResponse> listarMisCitas();
 }
 
 

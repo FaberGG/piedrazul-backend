@@ -1,6 +1,7 @@
 package com.piedrazul.backend.agenda.internal.service;
 
 import com.piedrazul.backend.agenda.internal.domain.Cita;
+import com.piedrazul.backend.agenda.internal.domain.EstadoCita;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.medicos.api.MedicosApi; // <-- IMPORTANTE: Dependemos de la API, no del Repo
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
@@ -86,7 +87,7 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
     private List<Cita> obtenerCitasActivasOrdenadas(Long medicoId, LocalDate fecha) {
         return citaRepository.findByMedicoIdAndFecha(medicoId, fecha)
                 .stream()
-                .filter(cita -> !"CANCELADA".equalsIgnoreCase(cita.getEstado()))
+                .filter(cita -> cita.getEstado() != EstadoCita.CANCELADA)
                 .sorted(Comparator.comparing(Cita::getHora))
                 .toList();
     }

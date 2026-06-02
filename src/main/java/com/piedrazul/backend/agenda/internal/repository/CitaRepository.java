@@ -1,6 +1,8 @@
 package com.piedrazul.backend.agenda.internal.repository;
 
 import com.piedrazul.backend.agenda.internal.domain.Cita;
+import com.piedrazul.backend.agenda.internal.domain.EstadoCita;
+import com.piedrazul.backend.agenda.internal.domain.TipoCita;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,34 +12,22 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
-/**
- * Repositorio JPA para la entidad Cita.
- */
 @Repository
 public interface CitaRepository extends JpaRepository<Cita, Long> {
 
-    /** Lista citas de un médico en una fecha determinada (RF1). */
     List<Cita> findByMedicoIdAndFecha(Long medicoId, LocalDate fecha);
 
-    /** Cuenta citas futuras activas de un paciente (RF3 — límite de 3 citas). */
     long countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(
-            Long pacienteId, String estado, LocalDate fecha);
+            Long pacienteId, EstadoCita estado, LocalDate fecha);
 
-    /** Verifica si el paciente ya tiene una cita activa futura en alguno de los estados indicados (RF3 — bloqueo doble reserva). */
     boolean existsByPacienteIdAndEstadoInAndFechaGreaterThanEqual(
-            Long pacienteId, List<String> estados, LocalDate fecha);
+            Long pacienteId, List<EstadoCita> estados, LocalDate fecha);
 
-    /** Valida si el medico ya tiene una cita activa en un slot puntual. */
     boolean existsByMedicoIdAndFechaAndHoraAndEstadoNot(
-            Long medicoId, LocalDate fecha, LocalTime hora, String estado);
+            Long medicoId, LocalDate fecha, LocalTime hora, EstadoCita estado);
 
-    /** Lista todas las citas en un rango de fechas (usado por AgendaFacade para reportes). */
     List<Cita> findByFechaBetween(LocalDate desde, LocalDate hasta);
 
-    /**
-     * Cuenta citas en un rango de fechas agrupadas por estado.
-     * Usado por AgendaFacade.obtenerResumenCitas() → módulo reportes.
-     */
     @Query("SELECT c.estado, COUNT(c) FROM Cita c " +
            "WHERE c.fecha BETWEEN :desde AND :hasta " +
            "GROUP BY c.estado")
@@ -45,7 +35,9 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
             @Param("desde") LocalDate desde,
             @Param("hasta") LocalDate hasta);
 
-    /** Verifica si existe una cita anterior (por ID) del mismo paciente — determina si la cita actual es la primera. */
     boolean existsByPacienteIdAndIdLessThan(Long pacienteId, Long citaId);
-}
 
+    boolean existsByPacienteIdAndTipoCitaAndEstado(Long pacienteId, TipoCita tipoCita, EstadoCita estado);
+
+    List<Cita> findByPacienteIdOrderByFechaDesc(Long pacienteId);
+}

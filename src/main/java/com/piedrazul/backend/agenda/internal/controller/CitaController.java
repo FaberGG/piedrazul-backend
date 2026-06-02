@@ -24,6 +24,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/citas")
@@ -139,5 +140,17 @@ public class CitaController {
             @PathVariable Long id,
             @RequestBody ActualizarCitaRequest request) {
         return ResponseEntity.ok(citaService.actualizarCita(id, request));
+    }
+
+    @GetMapping("/autonomo/puede-especialidad")
+    @PreAuthorize("hasRole('PACIENTE')")
+    public ResponseEntity<Map<String, Boolean>> puedeAgendarEspecialidad() {
+        return ResponseEntity.ok(Map.of("puedeEspecialidad", citaService.puedeAgendarEspecialidad()));
+    }
+
+    @GetMapping("/paciente/me")
+    @PreAuthorize("hasRole('PACIENTE')")
+    public ResponseEntity<List<CitaResponse>> misCitas() {
+        return ResponseEntity.ok(citaService.listarMisCitas());
     }
 }

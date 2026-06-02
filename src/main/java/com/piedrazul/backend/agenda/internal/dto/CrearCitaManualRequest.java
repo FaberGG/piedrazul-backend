@@ -48,6 +48,8 @@ public class CrearCitaManualRequest {
     @NotNull(message = "La fecha es obligatoria")
     private LocalDate fecha;
 
+    private String tipoCita;
+
     private String observaciones;
 }
 

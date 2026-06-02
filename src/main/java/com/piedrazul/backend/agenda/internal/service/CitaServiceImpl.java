@@ -12,7 +12,9 @@ import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
 import com.piedrazul.backend.agenda.internal.domain.AgendaDiaLock;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
+import com.piedrazul.backend.agenda.internal.domain.EstadoCita;
 import com.piedrazul.backend.agenda.internal.domain.HistorialCambiosCita;
+import com.piedrazul.backend.agenda.internal.domain.TipoCita;
 import com.piedrazul.backend.agenda.internal.dto.ActualizarCitaRequest;
 import com.piedrazul.backend.agenda.internal.dto.CitaDetalleResponse;
 import com.piedrazul.backend.agenda.internal.dto.HistorialCambiosCitaResponse;
@@ -53,6 +55,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
     /**
@@ -75,6 +78,8 @@ public class CitaServiceImpl implements CitaService {
         private static final int HORIZONTE_DIAS_BUSQUEDA = 30;
         private static final int DURACION_MINIMA_ATENCION_MINUTOS = 15;
         private static final int DURACION_PRIORIDAD_MINUTOS = 5;
+        private static final Set<TipoCita> TIPOS_ESPECIALIDAD =
+                Set.of(TipoCita.TERAPIA_NEURAL, TipoCita.QUIROPRAXIA, TipoCita.FISIOTERAPIA);
         private static final DateTimeFormatter HORA_PANEL_FORMAT = DateTimeFormatter.ofPattern("h:mm a", Locale.US);
         private static final DateTimeFormatter HORA_AGENDA_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
@@ -143,7 +148,7 @@ public class CitaServiceImpl implements CitaService {
 
             List<Cita> citasActivas = citaRepository.findByMedicoIdAndFecha(medicoId, fecha)
                     .stream()
-                    .filter(cita -> !"CANCELADA".equalsIgnoreCase(cita.getEstado()))
+                    .filter(cita -> cita.getEstado() != EstadoCita.CANCELADA)
                     .sorted(Comparator.comparing(Cita::getHora))
                     .toList();
 
@@ -167,7 +172,8 @@ public class CitaServiceImpl implements CitaService {
                                 .especialidad(medico.getEspecialidad())
                                 .fecha(cita.getFecha())
                                 .hora(cita.getHora())
-                                .estado(cita.getEstado())
+                                .estado(cita.getEstado().name())
+                                .tipoCita(cita.getTipoCita() != null ? cita.getTipoCita().name() : null)
                                 .observaciones(cita.getObservaciones())
                                 .build();
                     })
@@ -251,14 +257,17 @@ public class CitaServiceImpl implements CitaService {
                                 .build()
                 );
 
+                TipoCita tipoCitaManual = parseTipoCita(request.getTipoCita());
+                validarTipoCitaParaPaciente(paciente.getId(), tipoCitaManual);
+
                 Cita cita = Cita.builder()
                         .pacienteId(paciente.getId())
                         .medicoId(request.getMedicoId())
                         .fecha(request.getFecha())
                         .hora(hora)
                         .duracionMinutos(obtenerDuracionEstandar(request.getMedicoId()))
-                        .tipoCita("ESTANDAR")
-                        .estado("PROGRAMADA")
+                        .tipoCita(tipoCitaManual)
+                        .estado(EstadoCita.PROGRAMADA)
                         .observaciones(request.getObservaciones())
                         .creadoPor(obtenerUsuarioIdAutenticado())
                         .build();
@@ -342,7 +351,7 @@ public class CitaServiceImpl implements CitaService {
 
             List<Cita> citasDia = citaRepository.findByMedicoIdAndFecha(medicoId, fecha)
                     .stream()
-                    .filter(cita -> !"CANCELADA".equalsIgnoreCase(cita.getEstado()))
+                    .filter(cita -> cita.getEstado() != EstadoCita.CANCELADA)
                     .sorted(Comparator.comparing(Cita::getHora))
                     .toList();
 
@@ -393,7 +402,7 @@ public class CitaServiceImpl implements CitaService {
 
                 List<Cita> citasDia = citaRepository.findByMedicoIdAndFecha(request.getMedicoId(), request.getFecha())
                         .stream()
-                        .filter(cita -> !"CANCELADA".equalsIgnoreCase(cita.getEstado()))
+                        .filter(cita -> cita.getEstado() != EstadoCita.CANCELADA)
                         .sorted(Comparator.comparing(Cita::getHora))
                         .toList();
 
@@ -402,7 +411,7 @@ public class CitaServiceImpl implements CitaService {
                         .findFirst()
                         .orElseThrow(() -> new BusinessRuleException("No existe una cita de referencia en la hora indicada"));
 
-                if ("PRIORIDAD".equalsIgnoreCase(citaBase.getTipoCita())) {
+                if (TipoCita.PRIORIDAD == citaBase.getTipoCita()) {
                     throw new BusinessRuleException("La cita de referencia ya es prioritaria");
                 }
 
@@ -435,7 +444,7 @@ public class CitaServiceImpl implements CitaService {
                 }
 
                 if (citaRepository.existsByMedicoIdAndFechaAndHoraAndEstadoNot(
-                        request.getMedicoId(), request.getFecha(), inicioPrioridad, "CANCELADA")) {
+                        request.getMedicoId(), request.getFecha(), inicioPrioridad, EstadoCita.CANCELADA)) {
                     throw new BusinessRuleException("El horario prioritario ya se encuentra ocupado");
                 }
 
@@ -460,8 +469,8 @@ public class CitaServiceImpl implements CitaService {
                         .fecha(request.getFecha())
                         .hora(inicioPrioridad)
                         .duracionMinutos(DURACION_PRIORIDAD_MINUTOS)
-                        .tipoCita("PRIORIDAD")
-                        .estado("PROGRAMADA")
+                        .tipoCita(TipoCita.PRIORIDAD)
+                        .estado(EstadoCita.PROGRAMADA)
                         .observaciones(request.getObservaciones())
                         .creadoPor(obtenerUsuarioIdAutenticado())
                         .build();
@@ -515,9 +524,12 @@ public class CitaServiceImpl implements CitaService {
 
                 // Bloquear si el paciente ya tiene una cita PROGRAMADA futura.
                 // ATENDIDA y CANCELADA se consideran resueltas y no bloquean nuevas reservas.
+                TipoCita tipoCita = parseTipoCita(request.getTipoCita());
+                validarTipoCitaParaPaciente(pacienteResumenDTO.getId(), tipoCita);
+
                 boolean tieneCitaActiva = citaRepository.existsByPacienteIdAndEstadoInAndFechaGreaterThanEqual(
                         pacienteResumenDTO.getId(),
-                        List.of("PROGRAMADA"),
+                        List.of(EstadoCita.PROGRAMADA),
                         LocalDate.now()
                 );
                 if (tieneCitaActiva) {
@@ -526,7 +538,7 @@ public class CitaServiceImpl implements CitaService {
                     );
                 }
 
-                long citasFuturas = citaRepository.countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(pacienteResumenDTO.getId(), "CANCELADA", LocalDate.now());
+                long citasFuturas = citaRepository.countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(pacienteResumenDTO.getId(), EstadoCita.CANCELADA, LocalDate.now());
                 if (citasFuturas >= 3) {
                     throw new BusinessRuleException("Límite de 3 citas alcanzado");
                 }
@@ -549,7 +561,8 @@ public class CitaServiceImpl implements CitaService {
                         .medicoId(request.getMedicoId())
                         .fecha(request.getFecha())
                         .hora(request.getHora())
-                        .estado("PROGRAMADA")
+                        .tipoCita(tipoCita)
+                        .estado(EstadoCita.PROGRAMADA)
                         .observaciones(request.getObservaciones())
                         .creadoPor(usuarioId)
                         .build();
@@ -585,7 +598,7 @@ public class CitaServiceImpl implements CitaService {
                         .orElseThrow(() -> new ResourceNotFoundException("Cita", citaId));
 
                 // Solo las citas ya atendidas se pueden reagendar como seguimiento
-                if (!"ATENDIDA".equals(cita.getEstado())) {
+                if (cita.getEstado() != EstadoCita.ATENDIDA) {
                     throw new BusinessRuleException("Solo se pueden reagendar citas que ya fueron atendidas");
                 }
 
@@ -623,7 +636,7 @@ public class CitaServiceImpl implements CitaService {
                 cita.setFecha(request.getNuevaFecha());
                 cita.setHora(nuevaHora);
                 cita.setMedicoId(medicoId);
-                cita.setEstado("PROGRAMADA");
+                cita.setEstado(EstadoCita.PROGRAMADA);
 
                 Cita guardada = citaRepository.save(cita);
 
@@ -699,7 +712,7 @@ public class CitaServiceImpl implements CitaService {
                     .especialidad(medico.getEspecialidad())
                     .fecha(cita.getFecha())
                     .hora(cita.getHora())
-                    .estado(cita.getEstado())
+                    .estado(cita.getEstado().name())
                     .observaciones(cita.getObservaciones())
                     .esPrimeraCita(esPrimera)
                     .build();
@@ -732,9 +745,15 @@ public class CitaServiceImpl implements CitaService {
 
             // Validar transicion de estado
             if (request.getNuevoEstado() != null) {
-                String actual = cita.getEstado();
-                String nuevo = request.getNuevoEstado();
-                boolean transicionValida = "PROGRAMADA".equals(actual) && ("ATENDIDA".equals(nuevo) || "CANCELADA".equals(nuevo));
+                EstadoCita actual = cita.getEstado();
+                EstadoCita nuevo;
+                try {
+                    nuevo = EstadoCita.valueOf(request.getNuevoEstado());
+                } catch (IllegalArgumentException e) {
+                    throw new BusinessRuleException("Estado no válido: " + request.getNuevoEstado());
+                }
+                boolean transicionValida = actual == EstadoCita.PROGRAMADA
+                        && (nuevo == EstadoCita.ATENDIDA || nuevo == EstadoCita.CANCELADA);
                 if (!transicionValida) {
                     throw new BusinessRuleException("Transicion de estado no permitida: " + actual + " -> " + nuevo);
                 }
@@ -863,7 +882,8 @@ public class CitaServiceImpl implements CitaService {
                     .especialidad(medico.getEspecialidad())
                     .fecha(cita.getFecha())
                     .hora(cita.getHora())
-                    .estado(cita.getEstado())
+                    .estado(cita.getEstado().name())
+                    .tipoCita(cita.getTipoCita() != null ? cita.getTipoCita().name() : null)
                     .observaciones(cita.getObservaciones())
                     .build();
         }
@@ -1085,7 +1105,7 @@ public class CitaServiceImpl implements CitaService {
             PacienteResumenDTO paciente = pacientesPorId.get(cita.getPacienteId());
 
             boolean permitePrioridad = cita.getHora().equals(slot.hora())
-                    && !"PRIORIDAD".equalsIgnoreCase(cita.getTipoCita())
+                    && cita.getTipoCita() != TipoCita.PRIORIDAD
                     && puedeAbrirPrioridadPosterior(citasDia, cita, horario);
 
             return AgendaDinamicaSlotResponse.builder()
@@ -1120,7 +1140,7 @@ public class CitaServiceImpl implements CitaService {
                     : 0;
 
             boolean prioridadIntermedia = citasDia.stream().anyMatch(cita ->
-                    "PRIORIDAD".equalsIgnoreCase(cita.getTipoCita())
+                    cita.getTipoCita() == TipoCita.PRIORIDAD
                             && cita.getHora().isAfter(citaActual.getHora())
                             && cita.getHora().isBefore(limite)
             );
@@ -1163,12 +1183,12 @@ public class CitaServiceImpl implements CitaService {
             long canceladas  = 0;
 
             for (Object[] fila : conteos) {
-                String estado = (String) fila[0];
-                long   count  = (Long)   fila[1];
+                EstadoCita estado = (EstadoCita) fila[0];
+                long       count  = (Long)       fila[1];
                 switch (estado) {
-                    case "PROGRAMADA" -> programadas = count;
-                    case "ATENDIDA"   -> atendidas   = count;
-                    case "CANCELADA"  -> canceladas  = count;
+                    case PROGRAMADA -> programadas = count;
+                    case ATENDIDA   -> atendidas   = count;
+                    case CANCELADA  -> canceladas  = count;
                 }
             }
 
@@ -1198,6 +1218,57 @@ public class CitaServiceImpl implements CitaService {
         public boolean tieneCitasFuturas(Long pacienteId) {
             return citaRepository
                     .countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(
-                            pacienteId, "CANCELADA", LocalDate.now()) > 0;
+                            pacienteId, EstadoCita.CANCELADA, LocalDate.now()) > 0;
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public boolean puedeAgendarEspecialidad() {
+            UUID usuarioId = obtenerUsuarioIdAutenticado();
+            PacienteResumenDTO paciente = pacientesApi.buscarPorUsuarioId(usuarioId);
+            return citaRepository.existsByPacienteIdAndTipoCitaAndEstado(
+                    paciente.getId(), TipoCita.CONSULTA_GENERAL, EstadoCita.ATENDIDA);
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<CitaResponse> listarMisCitas() {
+            UUID usuarioId = obtenerUsuarioIdAutenticado();
+            PacienteResumenDTO paciente = pacientesApi.buscarPorUsuarioId(usuarioId);
+            return citaRepository.findByPacienteIdOrderByFechaDesc(paciente.getId())
+                    .stream()
+                    .map(cita -> {
+                        MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(cita.getMedicoId());
+                        return CitaResponse.builder()
+                                .id(cita.getId())
+                                .medicoNombre(medico != null ? medico.getNombresCompletos() : "")
+                                .especialidad(medico != null ? medico.getEspecialidad() : "")
+                                .fecha(cita.getFecha())
+                                .hora(cita.getHora())
+                                .estado(cita.getEstado().name())
+                                .tipoCita(cita.getTipoCita() != null ? cita.getTipoCita().name() : null)
+                                .observaciones(cita.getObservaciones())
+                                .build();
+                    })
+                    .toList();
+        }
+
+        private TipoCita parseTipoCita(String raw) {
+            if (raw == null || raw.isBlank()) return TipoCita.CONSULTA_GENERAL;
+            try {
+                return TipoCita.valueOf(raw.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new BusinessRuleException("Tipo de cita no válido: " + raw);
+            }
+        }
+
+        private void validarTipoCitaParaPaciente(Long pacienteId, TipoCita tipoCita) {
+            if (!TIPOS_ESPECIALIDAD.contains(tipoCita)) return;
+            boolean tieneConsultaGeneral = citaRepository.existsByPacienteIdAndTipoCitaAndEstado(
+                    pacienteId, TipoCita.CONSULTA_GENERAL, EstadoCita.ATENDIDA);
+            if (!tieneConsultaGeneral) {
+                throw new BusinessRuleException(
+                        "Debe tener una Consulta General atendida antes de agendar " + tipoCita.name());
+            }
         }
 }

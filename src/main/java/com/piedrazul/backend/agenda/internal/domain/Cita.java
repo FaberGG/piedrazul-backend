@@ -45,11 +45,13 @@ public class Cita {
     @Column(name = "duracion_minutos")
     private Integer duracionMinutos;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "tipo_cita", length = 20)
-    private String tipoCita;
+    private TipoCita tipoCita;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String estado;
+    private EstadoCita estado;
 
     @Column(columnDefinition = "TEXT")
     private String observaciones;
@@ -66,8 +68,7 @@ public class Cita {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
-        if (this.estado == null) this.estado = "PROGRAMADA";
-        if (this.tipoCita == null) this.tipoCita = "ESTANDAR";
+        if (this.estado == null) this.estado = EstadoCita.PROGRAMADA;
+        if (this.tipoCita == null) this.tipoCita = TipoCita.CONSULTA_GENERAL;
     }
 }
-
