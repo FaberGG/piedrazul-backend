@@ -59,8 +59,8 @@ public class ConfiguracionAgendaController {
     }
 
     @PostMapping("/dias-no-laborales/importar-festivos")
-@PreAuthorize("hasRole('ADMIN')")
-public ResponseEntity<List<DiaNoLaboralResponse>> importarFestivos(
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<DiaNoLaboralResponse>> importarFestivos(
         @RequestParam int anio) {
     return ResponseEntity.ok(configuracionAgendaService.importarFestivos(anio));
 }

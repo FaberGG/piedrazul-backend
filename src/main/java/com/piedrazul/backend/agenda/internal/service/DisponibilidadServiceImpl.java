@@ -3,6 +3,7 @@ package com.piedrazul.backend.agenda.internal.service;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
 import com.piedrazul.backend.agenda.internal.domain.EstadoCita;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
+import com.piedrazul.backend.agenda.internal.repository.DiaNoLaboralRepository;
 import com.piedrazul.backend.medicos.api.MedicosApi; // <-- IMPORTANTE: Dependemos de la API, no del Repo
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
 import lombok.RequiredArgsConstructor;
@@ -23,9 +24,15 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
     // Cambiamos MedicoRepository por la interfaz pública del módulo Médicos
     private final MedicosApi medicosApi;
     private final CitaRepository citaRepository;
+    private final DiaNoLaboralRepository diaNoLaboralRepository;
 
     @Override
     public List<LocalTime> calcularHorariosDisponibles(Long medicoId, LocalDate fecha) {
+        // Si la fecha es un día no laboral, no hay slots disponibles
+        if (fecha != null && diaNoLaboralRepository.existsByFecha(fecha)) {
+            return List.of();
+        }
+
         HorarioAtencionDTO config = medicosApi.obtenerHorarioAtencion(medicoId);
         if (!esConfiguracionValidaParaFecha(config, fecha)) {
             return List.of();
@@ -42,6 +49,11 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
 
     @Override
     public boolean estaDisponible(Long medicoId, LocalDate fecha, LocalTime hora) {
+        // No disponible en día no laboral
+        if (fecha != null && diaNoLaboralRepository.existsByFecha(fecha)) {
+            return false;
+        }
+
         HorarioAtencionDTO config = medicosApi.obtenerHorarioAtencion(medicoId);
         if (!esHoraValidaSegunConfig(hora, config, fecha)) {
             return false;

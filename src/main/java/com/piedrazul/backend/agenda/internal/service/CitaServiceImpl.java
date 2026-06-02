@@ -1,5 +1,6 @@
 package com.piedrazul.backend.agenda.internal.service;
 
+import com.piedrazul.backend.Notificaciones.dto.WhatsAppMessageRequest;
 import com.piedrazul.backend.agenda.api.dto.AgendaDiaDto;
 import com.piedrazul.backend.agenda.api.dto.CitaDiaDto;
 import com.piedrazul.backend.agenda.api.dto.CitaHistorialItemDto;
@@ -26,8 +27,10 @@ import com.piedrazul.backend.agenda.internal.dto.HistorialCambiosCitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.ReagendarCitaRequest;
 import com.piedrazul.backend.pacientes.api.dto.ActualizarPacienteDTO;
 import com.piedrazul.backend.agenda.internal.event.AgendaDinamicaChangedEvent;
+import com.piedrazul.backend.agenda.internal.event.CitaAgendadaEvent;
 import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
+import com.piedrazul.backend.agenda.internal.repository.DiaNoLaboralRepository;
 import com.piedrazul.backend.agenda.internal.repository.HistorialCambiosCitaRepository;
 import com.piedrazul.backend.auth.api.AuthApi;
 import com.piedrazul.backend.medicos.api.MedicosApi;
@@ -39,6 +42,7 @@ import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
 import com.piedrazul.backend.shared.audit.service.AuditService;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
+import com.piedrazul.backend.Notificaciones.services.WhatsAppMessageService;
 import org.hibernate.AssertionFailure;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -48,6 +52,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -96,8 +101,9 @@ public class CitaServiceImpl implements CitaService {
         private final AuthApi authApi;
         private final AuditService auditService;
         private final ApplicationEventPublisher eventPublisher;
+        private final DiaNoLaboralRepository diaNoLaboralRepository;
         private final ValidadorCita validadorCita;
-
+        private final WhatsAppMessageService whatsAppMessageService;
         public CitaServiceImpl(CitaRepository citaRepository,
                                AgendaDiaLockRepository agendaDiaLockRepository,
                                HistorialCambiosCitaRepository historialRepository,
@@ -107,7 +113,8 @@ public class CitaServiceImpl implements CitaService {
                                AuthApi authApi,
                                AuditService auditService,
                                ApplicationEventPublisher eventPublisher,
-                               ValidadorCita validadorCita) {
+                               DiaNoLaboralRepository diaNoLaboralRepository,
+                               ValidadorCita validadorCita, WhatsAppMessageService whatsAppMessageService) {
             this.citaRepository = citaRepository;
             this.agendaDiaLockRepository = agendaDiaLockRepository;
             this.historialRepository = historialRepository;
@@ -117,7 +124,9 @@ public class CitaServiceImpl implements CitaService {
             this.authApi = authApi;
             this.auditService = auditService;
             this.eventPublisher = eventPublisher;
+            this.diaNoLaboralRepository = diaNoLaboralRepository;
             this.validadorCita = validadorCita;
+            this.whatsAppMessageService = whatsAppMessageService;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -223,83 +232,96 @@ public class CitaServiceImpl implements CitaService {
          * 3. crear y guardar cita con citaRepository.save(cita)
          * 4. registrar operación en auditService.registrar(...)
          */
-        @Override
-        public CitaResponse crearCitaManual(CrearCitaManualRequest request) {
-            if (!request.getFecha().isAfter(LocalDate.now())) {
-                throw new BusinessRuleException("La fecha debe ser futura");
-            }
+      @Override
+public CitaResponse crearCitaManual(CrearCitaManualRequest request) {
+    if (!request.getFecha().isAfter(LocalDate.now())) {
+        throw new BusinessRuleException("La fecha debe ser futura");
+    }
 
-            try {
-                adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
+    validarNoLaboral(request.getFecha());
 
-                LocalTime hora = parseHora(request.getHora());
+    try {
+        adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
 
-                MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(request.getMedicoId());
-                if (medico == null) {
-                    throw new ResourceNotFoundException("Medico", request.getMedicoId());
-                }
-                if (!medico.isActivo()) {
-                    throw new BusinessRuleException("El medico no esta activo");
-                }
+        LocalTime hora = parseHora(request.getHora());
 
-                HorarioAtencionDTO horario = medicosApi.obtenerHorarioAtencion(request.getMedicoId());
-                if (horario == null || !horario.isActivo()) {
-                    throw new BusinessRuleException("El medico no tiene configuracion horaria activa");
-                }
-                validarHoraSegunConfiguracion(hora, request.getFecha(), horario);
-
-                if (!disponibilidadService.estaDisponible(request.getMedicoId(), request.getFecha(), hora)) {
-                    throw new BusinessRuleException("El horario seleccionado ya esta ocupado o fuera de la franja de atencion");
-                }
-
-                PacienteResumenDTO paciente = pacientesApi.obtenerOCrearPorDocumento(
-                        RegistroPacienteDTO.builder()
-                                .documento(request.getDocumento())
-                                .nombres(request.getNombres())
-                                .apellidos(request.getApellidos())
-                                .celular(request.getCelular())
-                                .genero(request.getGenero())
-                                .fechaNacimiento(request.getFechaNacimiento())
-                                .correo(request.getCorreo())
-                                .build()
-                );
-
-                EspecialidadMedica especialidad = EspecialidadMedica.fromString(medico.getEspecialidad());
-                TipoCita tipoCita = especialidad.getTipoCita();
-                validadorCita.validar(new ContextoValidacionCita(paciente.getId(), tipoCita, request.getMedicoId()));
-
-                Cita cita = Cita.builder()
-                        .pacienteId(paciente.getId())
-                        .medicoId(request.getMedicoId())
-                        .fecha(request.getFecha())
-                        .hora(hora)
-                        .duracionMinutos(obtenerDuracionEstandar(request.getMedicoId()))
-                        .tipoCita(tipoCita)
-                        .estado(EstadoCita.PROGRAMADA)
-                        .observaciones(request.getObservaciones())
-                        .creadoPor(obtenerUsuarioIdAutenticado())
-                        .build();
-
-                Cita guardada = citaRepository.save(cita);
-
-                auditService.registrar(
-                        guardada.getCreadoPor(),
-                        "CREAR",
-                        "CITA",
-                        guardada.getId(),
-                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
-                );
-
-                publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
-
-                return mapToResponse(guardada, paciente, medico);
-            } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
-                throw conflictoConcurrencia();
-            } catch (DataIntegrityViolationException ex) {
-                throw conflictoSlotOcupado();
-            }
+        MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(request.getMedicoId());
+        if (medico == null) {
+            throw new ResourceNotFoundException("Medico", request.getMedicoId());
+        }
+        if (!medico.isActivo()) {
+            throw new BusinessRuleException("El medico no esta activo");
         }
 
+        HorarioAtencionDTO horario = medicosApi.obtenerHorarioAtencion(request.getMedicoId());
+        if (horario == null || !horario.isActivo()) {
+            throw new BusinessRuleException("El medico no tiene configuracion horaria activa");
+        }
+        validarHoraSegunConfiguracion(hora, request.getFecha(), horario);
+
+        if (!disponibilidadService.estaDisponible(request.getMedicoId(), request.getFecha(), hora)) {
+            throw new BusinessRuleException("El horario seleccionado ya esta ocupado o fuera de la franja de atencion");
+        }
+
+        PacienteResumenDTO paciente = pacientesApi.obtenerOCrearPorDocumento(
+                RegistroPacienteDTO.builder()
+                        .documento(request.getDocumento())
+                        .nombres(request.getNombres())
+                        .apellidos(request.getApellidos())
+                        .celular(request.getCelular())
+                        .genero(request.getGenero())
+                        .fechaNacimiento(request.getFechaNacimiento())
+                        .correo(request.getCorreo())
+                        .build()
+        );
+
+        EspecialidadMedica especialidad = EspecialidadMedica.fromString(medico.getEspecialidad());
+        TipoCita tipoCita = especialidad.getTipoCita();
+        validadorCita.validar(new ContextoValidacionCita(paciente.getId(), tipoCita, request.getMedicoId()));
+
+        Cita cita = Cita.builder()
+                .pacienteId(paciente.getId())
+                .medicoId(request.getMedicoId())
+                .fecha(request.getFecha())
+                .hora(hora)
+                .duracionMinutos(obtenerDuracionEstandar(request.getMedicoId()))
+                .tipoCita(tipoCita)
+                .estado(EstadoCita.PROGRAMADA)
+                .observaciones(request.getObservaciones())
+                .creadoPor(obtenerUsuarioIdAutenticado())
+                .build();
+
+        Cita guardada = citaRepository.save(cita);
+
+        auditService.registrar(
+                guardada.getCreadoPor(),
+                "CREAR",
+                "CITA",
+                guardada.getId(),
+                "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
+        );
+
+        // 👇 ENVIAR WHATSAPP
+        enviarConfirmacionWhatsApp(guardada, paciente, medico);
+
+        eventPublisher.publishEvent(new CitaAgendadaEvent(
+                String.valueOf(paciente.getId()),
+                paciente.getCelular(),
+                paciente.getCorreo(),
+                medico.getNombresCompletos(),
+                LocalDateTime.of(guardada.getFecha(), guardada.getHora())
+        ));
+
+        publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
+
+        return mapToResponse(guardada, paciente, medico);
+        
+    } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
+        throw conflictoConcurrencia();
+    } catch (DataIntegrityViolationException ex) {
+        throw conflictoSlotOcupado();
+    }
+}
         @Override
         @Transactional(readOnly = true)
         public PrimerHorarioDisponibleResponse obtenerPrimerHorarioDisponibleMedico(Long medicoId, LocalDate desde) {
@@ -390,6 +412,7 @@ public class CitaServiceImpl implements CitaService {
 
         @Override
         public CitaResponse crearCitaPrioritaria(CrearCitaPrioritariaRequest request) {
+            validarNoLaboral(request.getFecha());
             try {
                 adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
 
@@ -521,6 +544,7 @@ public class CitaServiceImpl implements CitaService {
 
         @Override
         public CitaResponse agendarAutonomo(AgendarAutonomoRequest request) {
+            validarNoLaboral(request.getFecha());
             try {
                 adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
 
@@ -584,6 +608,10 @@ public class CitaServiceImpl implements CitaService {
                         "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
                 );
 
+                        // ==========  AGREGAR ENVÍO DE WHATSAPP ==========
+                enviarConfirmacionWhatsApp(guardada, pacienteResumenDTO, medicoResumenDTO);
+               
+
                 publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_AUTONOMA_CREADA");
 
                 return mapToResponse(guardada, pacienteResumenDTO, medicoResumenDTO);
@@ -592,7 +620,7 @@ public class CitaServiceImpl implements CitaService {
             } catch (DataIntegrityViolationException ex) {
                 throw conflictoSlotOcupado();
             }
-        }
+}
 
         // ─────────────────────────────────────────────────────────────
         // RF8 — Reagendar cita atendida como seguimiento
@@ -1170,6 +1198,13 @@ public class CitaServiceImpl implements CitaService {
             }
         }
 
+        private void validarNoLaboral(LocalDate fecha) {
+            if (fecha == null) return;
+            if (diaNoLaboralRepository.existsByFecha(fecha)) {
+                throw new BusinessRuleException("No es posible agendar en un día no laboral");
+            }
+        }
+
         private record SlotPanel(LocalTime hora, Cita cita) {}
 
         /**
@@ -1326,5 +1361,61 @@ public class CitaServiceImpl implements CitaService {
                     })
                     .toList();
         }
+
+    private void enviarConfirmacionWhatsApp(Cita cita, PacienteResumenDTO paciente, MedicoResumenDTO medico) {
+    try {
+        String telefono = paciente.getCelular();
+        if (telefono == null || telefono.isBlank()) {
+            System.out.println("⚠️ Paciente sin teléfono, no se envía WhatsApp");
+            return;
+        }
+
+        // Limpiar espacios, guiones y paréntesis
+        telefono = telefono.replaceAll("[\\s\\-()]", "");
+
+                    // Normalizar prefijo colombiano
+            if (telefono.startsWith("+57")) {
+                // ya está bien:
+            } else if (telefono.startsWith("57")) {
+                telefono = "+" + telefono;           // 
+            } else if (telefono.startsWith("+")) {
+                // tiene + pero sin código de país → asumir Colombia
+                telefono = "+57" + telefono.substring(1);  // 
+            } else {
+                telefono = "+57" + telefono;         // 
+            }
+
+        String fechaFormateada = cita.getFecha().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String horaFormateada  = cita.getHora().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+
+        String mensaje = String.format(
+            "🏥 *PIEDRAZUL* - Confirmación de Cita\n\n"
+            + "✅ *Paciente:* %s %s\n"
+            + "📅 *Fecha:* %s\n"
+            + "⏰ *Hora:* %s\n"
+            + "👨‍⚕️ *Médico:* Dr. %s\n"
+            + "🏷️ *Tipo:* %s\n\n"
+            + "📍 Presentarse 15 minutos antes.\n"
+            + "📞 Consultas: (01) 123-4567\n\n"
+            + "_Gracias por confiar en nosotros_",
+            paciente.getNombres(),
+            paciente.getApellidos(),
+            fechaFormateada,
+            horaFormateada,
+            medico.getNombresCompletos(),
+            cita.getTipoCita() != null ? cita.getTipoCita().name() : "CONSULTA"
+        );
+
+        WhatsAppMessageRequest wsRequest = new WhatsAppMessageRequest();
+        wsRequest.setTo(telefono);
+        wsRequest.setMessage(mensaje);
+
+        whatsAppMessageService.sendTextMessage(wsRequest);
+        System.out.println("✅ WhatsApp enviado a: " + telefono);
+
+    } catch (Exception e) {
+        System.err.println("❌ Error enviando WhatsApp: " + e.getMessage());
+    }
+}
 
 }

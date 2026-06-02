@@ -14,3 +14,10 @@ app:
     secret: test-secret-key-must-be-at-least-512-bits-long-for-hmac-sha512-algorithm
     expiration: 86400000
 
+twilio:
+    account:
+      sid: ${TWILIO_ACCOUNT_SID}
+    auth:
+      token: ${TWILIO_AUTH_TOKEN}
+    whatsapp:
+      number: ${TWILIO_WHATSAPP_NUMBER}
