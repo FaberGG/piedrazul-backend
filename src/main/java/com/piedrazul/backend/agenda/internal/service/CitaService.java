@@ -1,6 +1,8 @@
 package com.piedrazul.backend.agenda.internal.service;
 
 import com.piedrazul.backend.agenda.api.AgendaApi;
+import com.piedrazul.backend.agenda.api.dto.AgendaDiaDto;
+import com.piedrazul.backend.agenda.api.dto.HistorialPacienteDto;
 import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
 import com.piedrazul.backend.agenda.internal.dto.AgendarAutonomoRequest;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
@@ -144,6 +146,21 @@ public interface CitaService {
      * Lista todas las citas del paciente autenticado, ordenadas por fecha descendente.
      */
     List<CitaResponse> listarMisCitas();
+
+    /**
+     * Historial completo de citas de un paciente por ID (para uso del personal).
+     * Accesible por MEDICO, TERAPISTA, ADMIN, AGENDADOR.
+     *
+     * @param pacienteId ID del paciente
+     * @return datos del paciente + lista de citas ordenadas por fecha descendente
+     */
+    HistorialPacienteDto listarHistorialPaciente(Long pacienteId);
+
+    /**
+     * Retorna la agenda completa del día — todas las citas de todos los médicos
+     * para la fecha dada, agrupadas por médico y ordenadas por hora.
+     */
+    List<AgendaDiaDto> listarAgendaCompletaDia(LocalDate dia);
 }
 
 

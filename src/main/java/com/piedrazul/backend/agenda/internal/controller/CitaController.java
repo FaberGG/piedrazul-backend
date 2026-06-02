@@ -1,5 +1,7 @@
 package com.piedrazul.backend.agenda.internal.controller;
 
+import com.piedrazul.backend.agenda.api.dto.AgendaDiaDto;
+import com.piedrazul.backend.agenda.api.dto.HistorialPacienteDto;
 import com.piedrazul.backend.agenda.internal.dto.AgendarAutonomoRequest;
 import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaResponse;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
@@ -152,5 +154,17 @@ public class CitaController {
     @PreAuthorize("hasRole('PACIENTE')")
     public ResponseEntity<List<CitaResponse>> misCitas() {
         return ResponseEntity.ok(citaService.listarMisCitas());
+    }
+
+    @GetMapping("/paciente/{pacienteId}")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<HistorialPacienteDto> historialPaciente(@PathVariable Long pacienteId) {
+        return ResponseEntity.ok(citaService.listarHistorialPaciente(pacienteId));
+    }
+
+    @GetMapping("/agenda-completa")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<List<AgendaDiaDto>> agendaCompletaDia(@RequestParam LocalDate fecha) {
+        return ResponseEntity.ok(citaService.listarAgendaCompletaDia(fecha));
     }
 }

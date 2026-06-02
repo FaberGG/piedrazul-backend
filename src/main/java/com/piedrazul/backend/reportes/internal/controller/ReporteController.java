@@ -57,4 +57,24 @@ public class ReporteController {
     public ResponseEntity<List<ExportFormat>> getExportFormatos(){
         return ResponseEntity.ok(Arrays.asList(ExportFormat.values()));
     }
+
+    @GetMapping("/historial-paciente")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEDICO', 'TERAPISTA')")
+    public ResponseEntity<byte[]> historialPaciente(@RequestParam Long pacienteId) {
+        ExportResult result = reporteService.generarHistorialPaciente(pacienteId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Content-Disposition", "attachment; filename=historial-paciente-" + pacienteId + ".pdf");
+        headers.set("Content-Type", result.getContentType());
+        return ResponseEntity.ok().headers(headers).body(result.getData());
+    }
+
+    @GetMapping("/agenda-dia-completa")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MEDICO', 'TERAPISTA', 'AGENDADOR')")
+    public ResponseEntity<byte[]> agendaDiaCompleta(@RequestParam LocalDate dia) {
+        ExportResult result = reporteService.generarAgendaDiaCompleta(dia);
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Content-Disposition", "attachment; filename=agenda-completa-" + dia + ".pdf");
+        headers.set("Content-Type", result.getContentType());
+        return ResponseEntity.ok().headers(headers).body(result.getData());
+    }
 }

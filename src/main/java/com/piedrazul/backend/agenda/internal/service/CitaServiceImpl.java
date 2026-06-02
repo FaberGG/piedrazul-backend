@@ -1,5 +1,9 @@
 package com.piedrazul.backend.agenda.internal.service;
 
+import com.piedrazul.backend.agenda.api.dto.AgendaDiaDto;
+import com.piedrazul.backend.agenda.api.dto.CitaDiaDto;
+import com.piedrazul.backend.agenda.api.dto.CitaHistorialItemDto;
+import com.piedrazul.backend.agenda.api.dto.HistorialPacienteDto;
 import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
 import com.piedrazul.backend.agenda.internal.dto.AgendarAutonomoRequest;
 import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaBloqueResponse;
@@ -50,8 +54,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -1229,6 +1235,72 @@ public class CitaServiceImpl implements CitaService {
             PacienteResumenDTO paciente = pacientesApi.buscarPorUsuarioId(usuarioId);
             return citaRepository.existsByPacienteIdAndTipoCitaAndEstado(
                     paciente.getId(), TipoCita.CONSULTA_GENERAL, EstadoCita.ATENDIDA);
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<AgendaDiaDto> listarAgendaCompletaDia(LocalDate dia) {
+            List<Cita> citas = citaRepository.findByFechaOrderByMedicoIdAscHoraAsc(dia);
+
+            // Group by medicoId preserving order
+            Map<Long, List<Cita>> porMedico = new LinkedHashMap<>();
+            for (Cita c : citas) {
+                porMedico.computeIfAbsent(c.getMedicoId(), k -> new ArrayList<>()).add(c);
+            }
+
+            return porMedico.entrySet().stream()
+                    .map(entry -> {
+                        Long medicoId = entry.getKey();
+                        MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(medicoId);
+                        List<CitaDiaDto> citaDtos = entry.getValue().stream()
+                                .map(c -> {
+                                    PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(c.getPacienteId());
+                                    return CitaDiaDto.builder()
+                                            .pacienteNombre(paciente.getApellidos() + " " + paciente.getNombres())
+                                            .pacienteDocumento(paciente.getDocumento())
+                                            .fecha(c.getFecha())
+                                            .hora(c.getHora())
+                                            .estado(c.getEstado().name())
+                                            .observaciones(c.getObservaciones())
+                                            .build();
+                                })
+                                .toList();
+                        return AgendaDiaDto.builder()
+                                .medicoId(medicoId)
+                                .medicoNombre(medico != null ? medico.getNombresCompletos() : "Médico #" + medicoId)
+                                .especialidad(medico != null ? medico.getEspecialidad() : "")
+                                .fecha(dia)
+                                .citas(citaDtos)
+                                .build();
+                    })
+                    .toList();
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public HistorialPacienteDto listarHistorialPaciente(Long pacienteId) {
+            PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(pacienteId);
+            List<CitaHistorialItemDto> items = citaRepository.findByPacienteIdOrderByFechaDesc(pacienteId)
+                    .stream()
+                    .map(cita -> {
+                        MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(cita.getMedicoId());
+                        return CitaHistorialItemDto.builder()
+                                .fecha(cita.getFecha())
+                                .hora(cita.getHora())
+                                .tipoCita(cita.getTipoCita() != null ? cita.getTipoCita().name() : null)
+                                .estado(cita.getEstado().name())
+                                .medicoNombre(medico != null ? medico.getNombresCompletos() : "")
+                                .especialidad(medico != null ? medico.getEspecialidad() : "")
+                                .observaciones(cita.getObservaciones())
+                                .build();
+                    })
+                    .toList();
+            return HistorialPacienteDto.builder()
+                    .pacienteId(pacienteId)
+                    .nombreCompleto(paciente.getApellidos() + " " + paciente.getNombres())
+                    .documento(paciente.getDocumento())
+                    .citas(items)
+                    .build();
         }
 
         @Override
