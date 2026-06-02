@@ -26,10 +26,8 @@ import com.piedrazul.backend.agenda.internal.dto.HistorialCambiosCitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.ReagendarCitaRequest;
 import com.piedrazul.backend.pacientes.api.dto.ActualizarPacienteDTO;
 import com.piedrazul.backend.agenda.internal.event.AgendaDinamicaChangedEvent;
-import com.piedrazul.backend.agenda.internal.event.CitaAgendadaEvent;
 import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
-import com.piedrazul.backend.agenda.internal.repository.DiaNoLaboralRepository;
 import com.piedrazul.backend.agenda.internal.repository.HistorialCambiosCitaRepository;
 import com.piedrazul.backend.auth.api.AuthApi;
 import com.piedrazul.backend.medicos.api.MedicosApi;
@@ -51,7 +49,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -100,7 +97,6 @@ public class CitaServiceImpl implements CitaService {
         private final AuthApi authApi;
         private final AuditService auditService;
         private final ApplicationEventPublisher eventPublisher;
-        private final DiaNoLaboralRepository diaNoLaboralRepository;
         private final ValidadorCita validadorCita;
         private final EmailService emailService;
         public CitaServiceImpl(CitaRepository citaRepository,
@@ -123,7 +119,6 @@ public class CitaServiceImpl implements CitaService {
             this.authApi = authApi;
             this.auditService = auditService;
             this.eventPublisher = eventPublisher;
-            this.diaNoLaboralRepository = diaNoLaboralRepository;
             this.validadorCita = validadorCita;
             this.emailService = emailService;
         }
@@ -231,35 +226,81 @@ public class CitaServiceImpl implements CitaService {
          * 3. crear y guardar cita con citaRepository.save(cita)
          * 4. registrar operación en auditService.registrar(...)
          */
-      @Override
-public CitaResponse crearCitaManual(CrearCitaManualRequest request) {
-    if (!request.getFecha().isAfter(LocalDate.now())) {
-        throw new BusinessRuleException("La fecha debe ser futura");
-    }
+        @Override
+        public CitaResponse crearCitaManual(CrearCitaManualRequest request) {
+            if (!request.getFecha().isAfter(LocalDate.now())) {
+                throw new BusinessRuleException("La fecha debe ser futura");
+            }
 
-    validarNoLaboral(request.getFecha());
+            try {
+                adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
 
-    try {
-        adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
+                LocalTime hora = parseHora(request.getHora());
 
-        LocalTime hora = parseHora(request.getHora());
+                MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(request.getMedicoId());
+                if (medico == null) {
+                    throw new ResourceNotFoundException("Medico", request.getMedicoId());
+                }
+                if (!medico.isActivo()) {
+                    throw new BusinessRuleException("El medico no esta activo");
+                }
 
-        MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(request.getMedicoId());
-        if (medico == null) {
-            throw new ResourceNotFoundException("Medico", request.getMedicoId());
-        }
-        if (!medico.isActivo()) {
-            throw new BusinessRuleException("El medico no esta activo");
-        }
+                HorarioAtencionDTO horario = medicosApi.obtenerHorarioAtencion(request.getMedicoId());
+                if (horario == null || !horario.isActivo()) {
+                    throw new BusinessRuleException("El medico no tiene configuracion horaria activa");
+                }
+                validarHoraSegunConfiguracion(hora, request.getFecha(), horario);
 
-        HorarioAtencionDTO horario = medicosApi.obtenerHorarioAtencion(request.getMedicoId());
-        if (horario == null || !horario.isActivo()) {
-            throw new BusinessRuleException("El medico no tiene configuracion horaria activa");
-        }
-        validarHoraSegunConfiguracion(hora, request.getFecha(), horario);
+                if (!disponibilidadService.estaDisponible(request.getMedicoId(), request.getFecha(), hora)) {
+                    throw new BusinessRuleException("El horario seleccionado ya esta ocupado o fuera de la franja de atencion");
+                }
 
-        if (!disponibilidadService.estaDisponible(request.getMedicoId(), request.getFecha(), hora)) {
-            throw new BusinessRuleException("El horario seleccionado ya esta ocupado o fuera de la franja de atencion");
+                PacienteResumenDTO paciente = pacientesApi.obtenerOCrearPorDocumento(
+                        RegistroPacienteDTO.builder()
+                                .documento(request.getDocumento())
+                                .nombres(request.getNombres())
+                                .apellidos(request.getApellidos())
+                                .celular(request.getCelular())
+                                .genero(request.getGenero())
+                                .fechaNacimiento(request.getFechaNacimiento())
+                                .correo(request.getCorreo())
+                                .build()
+                );
+
+                EspecialidadMedica especialidad = EspecialidadMedica.fromString(medico.getEspecialidad());
+                TipoCita tipoCita = especialidad.getTipoCita();
+                validadorCita.validar(new ContextoValidacionCita(paciente.getId(), tipoCita, request.getMedicoId()));
+
+                Cita cita = Cita.builder()
+                        .pacienteId(paciente.getId())
+                        .medicoId(request.getMedicoId())
+                        .fecha(request.getFecha())
+                        .hora(hora)
+                        .duracionMinutos(obtenerDuracionEstandar(request.getMedicoId()))
+                        .tipoCita(tipoCita)
+                        .estado(EstadoCita.PROGRAMADA)
+                        .observaciones(request.getObservaciones())
+                        .creadoPor(obtenerUsuarioIdAutenticado())
+                        .build();
+
+                Cita guardada = citaRepository.save(cita);
+
+                auditService.registrar(
+                        guardada.getCreadoPor(),
+                        "CREAR",
+                        "CITA",
+                        guardada.getId(),
+                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
+                );
+
+                publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
+
+                return mapToResponse(guardada, paciente, medico);
+            } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
+                throw conflictoConcurrencia();
+            } catch (DataIntegrityViolationException ex) {
+                throw conflictoSlotOcupado();
+            }
         }
 
         PacienteResumenDTO paciente = pacientesApi.obtenerOCrearPorDocumento(
@@ -410,7 +451,6 @@ public CitaResponse crearCitaManual(CrearCitaManualRequest request) {
 
         @Override
         public CitaResponse crearCitaPrioritaria(CrearCitaPrioritariaRequest request) {
-            validarNoLaboral(request.getFecha());
             try {
                 adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
 
@@ -542,7 +582,6 @@ public CitaResponse crearCitaManual(CrearCitaManualRequest request) {
 
         @Override
         public CitaResponse agendarAutonomo(AgendarAutonomoRequest request) {
-            validarNoLaboral(request.getFecha());
             try {
                 adquirirBloqueoOptimistaAgenda(request.getMedicoId(), request.getFecha());
 
@@ -616,7 +655,7 @@ public CitaResponse crearCitaManual(CrearCitaManualRequest request) {
             } catch (DataIntegrityViolationException ex) {
                 throw conflictoSlotOcupado();
             }
-}
+        }
 
         // ─────────────────────────────────────────────────────────────
         // RF8 — Reagendar cita atendida como seguimiento
@@ -1191,13 +1230,6 @@ public CitaResponse crearCitaManual(CrearCitaManualRequest request) {
             long minutosDesdeInicio = java.time.Duration.between(horario.getHoraInicio(), hora).toMinutes();
             if (minutosDesdeInicio % horario.getIntervaloMinutos() != 0) {
                 throw new BusinessRuleException("La hora debe respetar el intervalo configurado del medico (" + horario.getIntervaloMinutos() + " minutos)");
-            }
-        }
-
-        private void validarNoLaboral(LocalDate fecha) {
-            if (fecha == null) return;
-            if (diaNoLaboralRepository.existsByFecha(fecha)) {
-                throw new BusinessRuleException("No es posible agendar en un día no laboral");
             }
         }
 
