@@ -16,6 +16,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+
 import java.time.Duration;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -23,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Implementacion minima del facade de medicos para habilitar inyeccion de MedicosApi.
@@ -96,6 +100,14 @@ public class MedicosFacade implements MedicosApi {
                 .stream()
                 .map(this::toResumen)
                 .toList();
+    }
+
+    public MedicoListadoResponse obtenerMedicoActual() {
+        JwtAuthenticationToken auth = (JwtAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
+        UUID usuarioId = UUID.fromString(auth.getToken().getSubject());
+        return medicosRepository.findByUsuarioId(usuarioId)
+                .map(this::toListado)
+                .orElseThrow(() -> new ResourceNotFoundException("Medico", usuarioId));
     }
 
     public List<MedicoListadoResponse> listarMedicosActivos(String especialidad) {
