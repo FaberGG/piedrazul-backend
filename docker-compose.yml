@@ -96,9 +96,6 @@ services:
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-piedrazul}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-piedrazul-backend}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
-      TWILIO_WHATSAPP_NUMBER: ${TWILIO_WHATSAPP_NUMBER}
     ports:
       - "8080:8080"
     depends_on:
@@ -107,8 +104,6 @@ services:
       keycloak:
         condition: service_healthy
     restart: on-failure
-
-    
 
 volumes:
   piedrazul_data:
