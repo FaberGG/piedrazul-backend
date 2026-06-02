@@ -39,6 +39,7 @@ import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
 import com.piedrazul.backend.shared.audit.service.AuditService;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
+import com.piedrazul.backend.Notificaciones.services.EmailService;
 import org.hibernate.AssertionFailure;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -97,7 +98,7 @@ public class CitaServiceImpl implements CitaService {
         private final AuditService auditService;
         private final ApplicationEventPublisher eventPublisher;
         private final ValidadorCita validadorCita;
-
+        private final EmailService emailService;
         public CitaServiceImpl(CitaRepository citaRepository,
                                AgendaDiaLockRepository agendaDiaLockRepository,
                                HistorialCambiosCitaRepository historialRepository,
@@ -107,7 +108,8 @@ public class CitaServiceImpl implements CitaService {
                                AuthApi authApi,
                                AuditService auditService,
                                ApplicationEventPublisher eventPublisher,
-                               ValidadorCita validadorCita) {
+                               DiaNoLaboralRepository diaNoLaboralRepository,
+                               ValidadorCita validadorCita,EmailService emailService) {
             this.citaRepository = citaRepository;
             this.agendaDiaLockRepository = agendaDiaLockRepository;
             this.historialRepository = historialRepository;
@@ -118,6 +120,7 @@ public class CitaServiceImpl implements CitaService {
             this.auditService = auditService;
             this.eventPublisher = eventPublisher;
             this.validadorCita = validadorCita;
+            this.emailService = emailService;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -300,6 +303,64 @@ public class CitaServiceImpl implements CitaService {
             }
         }
 
+        PacienteResumenDTO paciente = pacientesApi.obtenerOCrearPorDocumento(
+                RegistroPacienteDTO.builder()
+                        .documento(request.getDocumento())
+                        .nombres(request.getNombres())
+                        .apellidos(request.getApellidos())
+                        .celular(request.getCelular())
+                        .genero(request.getGenero())
+                        .fechaNacimiento(request.getFechaNacimiento())
+                        .correo(request.getCorreo())
+                        .build()
+        );
+
+        EspecialidadMedica especialidad = EspecialidadMedica.fromString(medico.getEspecialidad());
+        TipoCita tipoCita = especialidad.getTipoCita();
+        validadorCita.validar(new ContextoValidacionCita(paciente.getId(), tipoCita, request.getMedicoId()));
+
+        Cita cita = Cita.builder()
+                .pacienteId(paciente.getId())
+                .medicoId(request.getMedicoId())
+                .fecha(request.getFecha())
+                .hora(hora)
+                .duracionMinutos(obtenerDuracionEstandar(request.getMedicoId()))
+                .tipoCita(tipoCita)
+                .estado(EstadoCita.PROGRAMADA)
+                .observaciones(request.getObservaciones())
+                .creadoPor(obtenerUsuarioIdAutenticado())
+                .build();
+
+        Cita guardada = citaRepository.save(cita);
+
+        auditService.registrar(
+                guardada.getCreadoPor(),
+                "CREAR",
+                "CITA",
+                guardada.getId(),
+                "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
+        );
+
+        eventPublisher.publishEvent(new CitaAgendadaEvent(
+                String.valueOf(paciente.getId()),
+                paciente.getCelular(),
+                paciente.getCorreo(),
+                medico.getNombresCompletos(),
+                LocalDateTime.of(guardada.getFecha(), guardada.getHora())
+        ));
+
+        publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
+        enviarConfirmacionEmail(guardada, paciente, medico);
+
+
+        return mapToResponse(guardada, paciente, medico);
+        
+    } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
+        throw conflictoConcurrencia();
+    } catch (DataIntegrityViolationException ex) {
+        throw conflictoSlotOcupado();
+    }
+}
         @Override
         @Transactional(readOnly = true)
         public PrimerHorarioDisponibleResponse obtenerPrimerHorarioDisponibleMedico(Long medicoId, LocalDate desde) {
@@ -584,6 +645,8 @@ public class CitaServiceImpl implements CitaService {
                         "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
                 );
 
+                        // ==========  ENVIO DE EMAIL ==========
+                enviarConfirmacionEmail(guardada, pacienteResumenDTO, medicoResumenDTO);
                 publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_AUTONOMA_CREADA");
 
                 return mapToResponse(guardada, pacienteResumenDTO, medicoResumenDTO);
@@ -1326,5 +1389,34 @@ public class CitaServiceImpl implements CitaService {
                     })
                     .toList();
         }
+
+
+private void enviarConfirmacionEmail(Cita cita, PacienteResumenDTO paciente, MedicoResumenDTO medico) {
+    try {
+        String correo = paciente.getCorreo();
+        if (correo == null || correo.isBlank()) {
+            System.out.println("⚠️ Paciente sin correo, no se envía email");
+            return;
+        }
+
+        String fechaFormateada = cita.getFecha().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String horaFormateada  = cita.getHora().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+        String nombreCompleto  = paciente.getNombres() + " " + paciente.getApellidos();
+        String tipoCita        = cita.getTipoCita() != null ? cita.getTipoCita().name() : "CONSULTA";
+
+        emailService.enviarConfirmacionCita(
+            correo,
+            nombreCompleto,
+            fechaFormateada,
+            horaFormateada,
+            medico.getNombresCompletos(),
+            tipoCita
+        );
+        System.out.println("✅ Email enviado a: " + correo);
+
+    } catch (Exception e) {
+        System.err.println("❌ Error enviando email: " + e.getMessage());
+    }
+}
 
 }
