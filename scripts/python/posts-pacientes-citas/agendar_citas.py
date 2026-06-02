@@ -24,23 +24,12 @@ ADMIN_PASSWORD = "Password123!"
 HEADERS_JSON = {"Content-Type": "application/json"}
 
 # ── Médicos a registrar ────────────────────────────────────
+# Especialidades alineadas con EspecialidadMedica enum del backend:
+# MEDICINA_GENERAL → CONSULTA_GENERAL
+# TERAPIA_NEURAL   → TERAPIA_NEURAL
+# QUIROPRAXIA      → QUIROPRAXIA
+# FISIOTERAPIA     → FISIOTERAPIA
 MEDICOS = [
-    {
-        "username"    : "medico.neural",
-        "password"    : "Password123!",
-        "nombres"     : "Clara Inés",
-        "apellidos"   : "Córdoba Ruiz",
-        "especialidad": "TERAPIA_NEURAL",
-        "tipo"        : "MEDICO",
-    },
-    {
-        "username"    : "medico.cardio",
-        "password"    : "Password123!",
-        "nombres"     : "Roberto",
-        "apellidos"   : "Salcedo Mora",
-        "especialidad": "CARDIOLOGIA",
-        "tipo"        : "MEDICO",
-    },
     {
         "username"    : "medico.general",
         "password"    : "Password123!",
@@ -50,11 +39,27 @@ MEDICOS = [
         "tipo"        : "MEDICO",
     },
     {
-        "username"    : "medico.ortop",
+        "username"    : "medico.neural",
         "password"    : "Password123!",
-        "nombres"     : "Hernán",
-        "apellidos"   : "Villamizar Peña",
-        "especialidad": "ORTOPEDIA",
+        "nombres"     : "Clara Inés",
+        "apellidos"   : "Córdoba Ruiz",
+        "especialidad": "TERAPIA_NEURAL",
+        "tipo"        : "MEDICO",
+    },
+    {
+        "username"    : "medico.quiro",
+        "password"    : "Password123!",
+        "nombres"     : "Andrés Felipe",
+        "apellidos"   : "Muñoz Lara",
+        "especialidad": "QUIROPRAXIA",
+        "tipo"        : "MEDICO",
+    },
+    {
+        "username"    : "medico.fisio",
+        "password"    : "Password123!",
+        "nombres"     : "Laura Sofía",
+        "apellidos"   : "Vargas Pinto",
+        "especialidad": "FISIOTERAPIA",
         "tipo"        : "MEDICO",
     },
 ]

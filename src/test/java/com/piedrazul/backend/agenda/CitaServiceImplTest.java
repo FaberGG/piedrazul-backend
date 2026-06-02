@@ -2,6 +2,8 @@ package com.piedrazul.backend.agenda;
 
 import com.piedrazul.backend.agenda.internal.domain.AgendaDiaLock;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
+import com.piedrazul.backend.agenda.internal.domain.EstadoCita;
+import com.piedrazul.backend.agenda.internal.domain.TipoCita;
 import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaResponse;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
@@ -9,6 +11,7 @@ import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.agenda.internal.service.CitaServiceImpl;
 import com.piedrazul.backend.agenda.internal.service.DisponibilidadService;
+import com.piedrazul.backend.agenda.internal.service.ValidadorCita;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
 import com.piedrazul.backend.medicos.api.dto.MedicoResumenDTO;
@@ -52,6 +55,7 @@ class CitaServiceImplTest {
     @Mock private MedicosApi medicosApi;
     @Mock private PacientesApi pacientesApi;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private ValidadorCita validadorCita;
 
     @InjectMocks
     private CitaServiceImpl citaService;
@@ -91,7 +95,7 @@ class CitaServiceImplTest {
                 .medicoId(1L)
                 .fecha(fechaLunes)
                 .hora(LocalTime.of(7, 0))
-                .estado("PROGRAMADA")
+                .estado(EstadoCita.PROGRAMADA)
                 .build();
 
         PacienteResumenDTO paciente = PacienteResumenDTO.builder()
@@ -184,7 +188,7 @@ class CitaServiceImplTest {
                 .medicoId(1L)
                 .fecha(fechaLunes)
                 .hora(LocalTime.of(7, 0))
-                .estado("CANCELADA")
+                .estado(EstadoCita.CANCELADA)
                 .build();
 
         when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoActivo);
@@ -235,8 +239,8 @@ class CitaServiceImplTest {
                 .fecha(fechaLunes)
                 .hora(LocalTime.of(9, 0))
                 .duracionMinutos(15)
-                .tipoCita("ESTANDAR")
-                .estado("PROGRAMADA")
+                .tipoCita(TipoCita.ESTANDAR)
+                .estado(EstadoCita.PROGRAMADA)
                 .build();
 
         Cita prioridad = Cita.builder()
@@ -246,8 +250,8 @@ class CitaServiceImplTest {
                 .fecha(fechaLunes)
                 .hora(LocalTime.of(9, 15))
                 .duracionMinutos(5)
-                .tipoCita("PRIORIDAD")
-                .estado("PROGRAMADA")
+                .tipoCita(TipoCita.PRIORIDAD)
+                .estado(EstadoCita.PROGRAMADA)
                 .build();
 
         Cita siguiente = Cita.builder()
@@ -257,8 +261,8 @@ class CitaServiceImplTest {
                 .fecha(fechaLunes)
                 .hora(LocalTime.of(9, 45))
                 .duracionMinutos(30)
-                .tipoCita("ESTANDAR")
-                .estado("PROGRAMADA")
+                .tipoCita(TipoCita.ESTANDAR)
+                .estado(EstadoCita.PROGRAMADA)
                 .build();
 
         when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoActivo);
