@@ -96,9 +96,9 @@ services:
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-piedrazul}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-piedrazul-backend}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
-      TWILIO_WHATSAPP_NUMBER: ${TWILIO_WHATSAPP_NUMBER}
+      # Credenciales para el envío de emails 
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
     ports:
       - "8080:8080"
     depends_on:
