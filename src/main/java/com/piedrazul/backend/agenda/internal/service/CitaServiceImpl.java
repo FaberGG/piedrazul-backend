@@ -40,6 +40,7 @@ import com.piedrazul.backend.shared.audit.service.AuditService;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import com.piedrazul.backend.Notificaciones.services.EmailService;
+ import com.piedrazul.backend.agenda.internal.repository.DiaNoLaboralRepository;
 import org.hibernate.AssertionFailure;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -302,6 +303,26 @@ public class CitaServiceImpl implements CitaService {
                 throw conflictoSlotOcupado();
             }
         }
+
+        @Override
+            @Transactional(readOnly = true)
+            public PrimerHorarioDisponibleResponse obtenerPrimerHorarioDisponibleMedico(Long medicoId, LocalDate desde) {
+                LocalDate fechaInicio = normalizarFechaInicio(desde);
+
+                MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(medicoId);
+                if (medico == null) {
+                    throw new ResourceNotFoundException("Medico", medicoId);
+                }
+                if (!medico.isActivo()) {
+                    throw new BusinessRuleException("El medico no esta activo");
+                }
+
+                SlotDisponible slot = buscarPrimerSlotParaMedico(medico, fechaInicio)
+                        .orElseThrow(() -> new BusinessRuleException(
+                                "No hay horarios disponibles para el médico en la ventana de búsqueda"));
+
+                return mapToPrimerHorarioResponse(slot);
+            }
 
         
         @Override
