@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-piedrazul_prod}
       POSTGRES_USER: ${POSTGRES_USER:-piedrazul_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - piedrazul_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -25,7 +25,7 @@ services:
       KC_DB: postgres
       KC_DB_URL: ${KC_DB_URL:-jdbc:postgresql://postgres:5432/keycloak_db}
       KC_DB_USERNAME: ${KC_DB_USERNAME:-piedrazul_user}
-      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-change_me}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       KC_HTTP_ENABLED: ${KC_HTTP_ENABLED:-true}
       KC_HTTP_PORT: 8080
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-auth.example.com}
@@ -36,9 +36,9 @@ services:
       KC_PROXY_HEADERS: ${KEYCLOAK_PROXY_HEADERS:-xforwarded}
       KC_HEALTH_ENABLED: ${KC_HEALTH_ENABLED:-true}
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-change_me}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
     volumes:
-      - ./docker/keycloak:/opt/keycloak/data/import
+      - ./docker/keycloak/import:/opt/keycloak/data/import
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,12 +63,12 @@ services:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/piedrazul_prod}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-piedrazul_user}
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-change_me}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:-https://auth.example.com/realms/piedrazul}
       KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://keycloak:8080}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-piedrazul}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-piedrazul-backend}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-change_me}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,6 +81,7 @@ services:
   nginx:
     image: nginx:1.27-alpine
     container_name: piedrazul_nginx
+    restart: always
     ports:
       - "80:80"
       - "443:443"
@@ -89,7 +90,7 @@ services:
       NGINX_AUTH_HOST: ${NGINX_AUTH_HOST:-auth.example.com}
     volumes:
       - ./docker/nginx/templates:/etc/nginx/templates:ro
-      - ./docker/nginx/certs:/etc/nginx/certs:ro
+      - ${NGINX_CERTS_DIR}:/etc/nginx/certs:ro
     depends_on:
       - backend
       - keycloak
@@ -101,4 +102,3 @@ volumes:
 
 networks:
   piedrazul_net:
-
