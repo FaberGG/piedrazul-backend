@@ -91,7 +91,7 @@ services:
       NGINX_AUTH_HOST: ${NGINX_AUTH_HOST:-auth.example.com}
     volumes:
       - ./docker/nginx/templates:/etc/nginx/templates:ro
-      - ${NGINX_CERTS_DIR}:/etc/nginx/certs:ro
+      - ${NGINX_CERTS_DIR}:/etc/letsencrypt:ro
     depends_on:
       - backend
       - keycloak
