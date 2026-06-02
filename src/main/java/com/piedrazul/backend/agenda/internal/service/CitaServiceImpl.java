@@ -294,7 +294,14 @@ public class CitaServiceImpl implements CitaService {
                 );
 
                 publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
-
+                eventPublisher.publishEvent(new CitaAgendadaEvent(
+                        String.valueOf(paciente.getId()),
+                        paciente.getCelular(),
+                        paciente.getCorreo(),
+                        medico.getNombresCompletos(),
+                        LocalDateTime.of(guardada.getFecha(), guardada.getHora())
+                ));
+                enviarConfirmacionEmail(guardada, paciente, medico);
                 return mapToResponse(guardada, paciente, medico);
             } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
                 throw conflictoConcurrencia();
@@ -302,65 +309,6 @@ public class CitaServiceImpl implements CitaService {
                 throw conflictoSlotOcupado();
             }
         }
-
-        PacienteResumenDTO paciente = pacientesApi.obtenerOCrearPorDocumento(
-                RegistroPacienteDTO.builder()
-                        .documento(request.getDocumento())
-                        .nombres(request.getNombres())
-                        .apellidos(request.getApellidos())
-                        .celular(request.getCelular())
-                        .genero(request.getGenero())
-                        .fechaNacimiento(request.getFechaNacimiento())
-                        .correo(request.getCorreo())
-                        .build()
-        );
-
-        EspecialidadMedica especialidad = EspecialidadMedica.fromString(medico.getEspecialidad());
-        TipoCita tipoCita = especialidad.getTipoCita();
-        validadorCita.validar(new ContextoValidacionCita(paciente.getId(), tipoCita, request.getMedicoId()));
-
-        Cita cita = Cita.builder()
-                .pacienteId(paciente.getId())
-                .medicoId(request.getMedicoId())
-                .fecha(request.getFecha())
-                .hora(hora)
-                .duracionMinutos(obtenerDuracionEstandar(request.getMedicoId()))
-                .tipoCita(tipoCita)
-                .estado(EstadoCita.PROGRAMADA)
-                .observaciones(request.getObservaciones())
-                .creadoPor(obtenerUsuarioIdAutenticado())
-                .build();
-
-        Cita guardada = citaRepository.save(cita);
-
-        auditService.registrar(
-                guardada.getCreadoPor(),
-                "CREAR",
-                "CITA",
-                guardada.getId(),
-                "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
-        );
-
-        eventPublisher.publishEvent(new CitaAgendadaEvent(
-                String.valueOf(paciente.getId()),
-                paciente.getCelular(),
-                paciente.getCorreo(),
-                medico.getNombresCompletos(),
-                LocalDateTime.of(guardada.getFecha(), guardada.getHora())
-        ));
-
-        publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
-        enviarConfirmacionEmail(guardada, paciente, medico);
-
-
-        return mapToResponse(guardada, paciente, medico);
-        
-    } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
-        throw conflictoConcurrencia();
-    } catch (DataIntegrityViolationException ex) {
-        throw conflictoSlotOcupado();
-    }
-}
         @Override
         @Transactional(readOnly = true)
         public PrimerHorarioDisponibleResponse obtenerPrimerHorarioDisponibleMedico(Long medicoId, LocalDate desde) {
