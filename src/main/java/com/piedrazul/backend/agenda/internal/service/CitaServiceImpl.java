@@ -1256,6 +1256,7 @@ public class CitaServiceImpl implements CitaService {
                                 .map(c -> {
                                     PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(c.getPacienteId());
                                     return CitaDiaDto.builder()
+                                            .id(c.getId())
                                             .pacienteNombre(paciente.getApellidos() + " " + paciente.getNombres())
                                             .pacienteDocumento(paciente.getDocumento())
                                             .fecha(c.getFecha())
