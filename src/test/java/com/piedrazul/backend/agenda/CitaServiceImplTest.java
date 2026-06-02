@@ -2,6 +2,8 @@ package com.piedrazul.backend.agenda;
 
 import com.piedrazul.backend.agenda.internal.domain.AgendaDiaLock;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
+import com.piedrazul.backend.agenda.internal.domain.EstadoCita;
+import com.piedrazul.backend.agenda.internal.domain.TipoCita;
 import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaResponse;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
@@ -91,7 +93,7 @@ class CitaServiceImplTest {
                 .medicoId(1L)
                 .fecha(fechaLunes)
                 .hora(LocalTime.of(7, 0))
-                .estado("PROGRAMADA")
+                .estado(EstadoCita.PROGRAMADA)
                 .build();
 
         PacienteResumenDTO paciente = PacienteResumenDTO.builder()
@@ -184,7 +186,7 @@ class CitaServiceImplTest {
                 .medicoId(1L)
                 .fecha(fechaLunes)
                 .hora(LocalTime.of(7, 0))
-                .estado("CANCELADA")
+                .estado(EstadoCita.CANCELADA)
                 .build();
 
         when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoActivo);
@@ -235,8 +237,8 @@ class CitaServiceImplTest {
                 .fecha(fechaLunes)
                 .hora(LocalTime.of(9, 0))
                 .duracionMinutos(15)
-                .tipoCita("ESTANDAR")
-                .estado("PROGRAMADA")
+                .tipoCita(TipoCita.ESTANDAR)
+                .estado(EstadoCita.PROGRAMADA)
                 .build();
 
         Cita prioridad = Cita.builder()
@@ -246,8 +248,8 @@ class CitaServiceImplTest {
                 .fecha(fechaLunes)
                 .hora(LocalTime.of(9, 15))
                 .duracionMinutos(5)
-                .tipoCita("PRIORIDAD")
-                .estado("PROGRAMADA")
+                .tipoCita(TipoCita.PRIORIDAD)
+                .estado(EstadoCita.PROGRAMADA)
                 .build();
 
         Cita siguiente = Cita.builder()
@@ -257,8 +259,8 @@ class CitaServiceImplTest {
                 .fecha(fechaLunes)
                 .hora(LocalTime.of(9, 45))
                 .duracionMinutos(30)
-                .tipoCita("ESTANDAR")
-                .estado("PROGRAMADA")
+                .tipoCita(TipoCita.ESTANDAR)
+                .estado(EstadoCita.PROGRAMADA)
                 .build();
 
         when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoActivo);
@@ -301,6 +303,7 @@ class CitaServiceImplTest {
                 1L,
                 "08:00:00",
                 fechaFutura,
+                null,
                 "Control"
         );
 
@@ -343,6 +346,7 @@ class CitaServiceImplTest {
                 1L,
                 "08:00:00",
                 fecha,
+                null,
                 "Control"
         );
 
