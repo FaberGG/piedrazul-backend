@@ -26,8 +26,6 @@ public class AgendarAutonomoRequest {
     @NotNull(message = "La hora es obligatoria")
     private LocalTime hora;
 
-    private String tipoCita;
-
     private String observaciones;
 }
 

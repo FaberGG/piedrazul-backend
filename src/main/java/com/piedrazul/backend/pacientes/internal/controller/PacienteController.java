@@ -1,8 +1,10 @@
 package com.piedrazul.backend.pacientes.internal.controller;
 
+import com.piedrazul.backend.auth.api.AuthApi;
 import com.piedrazul.backend.pacientes.internal.dto.PacienteResponse;
 import com.piedrazul.backend.pacientes.internal.dto.PacienteSugerenciaResponse;
 import com.piedrazul.backend.pacientes.internal.service.PacienteService;
+import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,6 +21,7 @@ import java.util.UUID;
 public class PacienteController {
 
     private final PacienteService pacienteService;
+    private final AuthApi authApi;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
@@ -45,7 +48,10 @@ public class PacienteController {
     public ResponseEntity<PacienteResponse> miPerfil() {
         JwtAuthenticationToken auth = (JwtAuthenticationToken) SecurityContextHolder
                 .getContext().getAuthentication();
-        UUID usuarioId = UUID.fromString(auth.getToken().getSubject());
+        String keycloakId = auth.getToken().getSubject();
+        UUID usuarioId = authApi.findByKeycloakId(keycloakId)
+                .map(u -> u.getId())
+                .orElseThrow(() -> new BusinessRuleException("Usuario no encontrado"));
         return ResponseEntity.ok(pacienteService.buscarPorUsuarioId(usuarioId));
     }
 }

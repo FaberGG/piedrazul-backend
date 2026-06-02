@@ -11,6 +11,7 @@ import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.agenda.internal.service.CitaServiceImpl;
 import com.piedrazul.backend.agenda.internal.service.DisponibilidadService;
+import com.piedrazul.backend.agenda.internal.service.ValidadorCita;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
 import com.piedrazul.backend.medicos.api.dto.MedicoResumenDTO;
@@ -54,6 +55,7 @@ class CitaServiceImplTest {
     @Mock private MedicosApi medicosApi;
     @Mock private PacientesApi pacientesApi;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private ValidadorCita validadorCita;
 
     @InjectMocks
     private CitaServiceImpl citaService;
@@ -303,7 +305,6 @@ class CitaServiceImplTest {
                 1L,
                 "08:00:00",
                 fechaFutura,
-                null,
                 "Control"
         );
 
@@ -346,7 +347,6 @@ class CitaServiceImplTest {
                 1L,
                 "08:00:00",
                 fecha,
-                null,
                 "Control"
         );
 
