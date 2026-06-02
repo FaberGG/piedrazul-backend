@@ -37,7 +37,12 @@ build/
 
 ### Local environment files ###
 .env.dev
+.env.prod
 !.env.dev.example
-
+### Security keys ###
+piedrazul-backend_key.pem
 #### Concurrency test reports ####
 scripts/python/concurrency-test/scripts/reports/
+
+### Realms de Keycloak ###
+docker/keycloak/export/

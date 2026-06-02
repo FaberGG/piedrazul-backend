@@ -297,3 +297,7 @@ Notas:
 ### 5. Datos
 
 - [`05-datos/01-modelo-datos-y-diccionario.md`](docs/05-datos/01-modelo-datos-y-diccionario.md)
+
+## Despliegue en produccion
+
+- [`06-despliegue/01-guia-despliegue-vm-docker-compose.md`](docs/06-despliegue/01-guia-despliegue-vm-docker-compose.md)

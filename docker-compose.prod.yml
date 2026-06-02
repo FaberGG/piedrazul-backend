@@ -1,0 +1,104 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: piedrazul_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-piedrazul_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-piedrazul_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+    volumes:
+      - piedrazul_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - piedrazul_net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: piedrazul_keycloak
+    command: start --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: ${KC_DB_URL:-jdbc:postgresql://postgres:5432/keycloak_db}
+      KC_DB_USERNAME: ${KC_DB_USERNAME:-piedrazul_user}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-change_me}
+      KC_HTTP_ENABLED: ${KC_HTTP_ENABLED:-true}
+      KC_HTTP_PORT: 8080
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-auth.example.com}
+      KC_HOSTNAME_PORT: ${KEYCLOAK_HOSTNAME_PORT:-443}
+      KC_HOSTNAME_STRICT: ${KEYCLOAK_HOSTNAME_STRICT:-true}
+      KC_HOSTNAME_STRICT_HTTPS: ${KEYCLOAK_HOSTNAME_STRICT_HTTPS:-true}
+      KC_PROXY: ${KEYCLOAK_PROXY:-edge}
+      KC_PROXY_HEADERS: ${KEYCLOAK_PROXY_HEADERS:-xforwarded}
+      KC_HEALTH_ENABLED: ${KC_HEALTH_ENABLED:-true}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-change_me}
+    volumes:
+      - ./docker/keycloak:/opt/keycloak/data/import
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080; echo -e \"GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; grep -q \"200 OK\" <&3' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - piedrazul_net
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: piedrazul-backend:${BACKEND_IMAGE_TAG:-latest}
+    container_name: piedrazul_backend
+    env_file:
+      - .env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/piedrazul_prod}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-piedrazul_user}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-change_me}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:-https://auth.example.com/realms/piedrazul}
+      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-piedrazul}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-piedrazul-backend}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-change_me}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - piedrazul_net
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: piedrazul_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      NGINX_API_HOST: ${NGINX_API_HOST:-api.example.com}
+      NGINX_AUTH_HOST: ${NGINX_AUTH_HOST:-auth.example.com}
+    volumes:
+      - ./docker/nginx/templates:/etc/nginx/templates:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - backend
+      - keycloak
+    networks:
+      - piedrazul_net
+
+volumes:
+  piedrazul_data:
+
+networks:
+  piedrazul_net:
+

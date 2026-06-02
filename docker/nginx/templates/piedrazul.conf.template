@@ -1,0 +1,70 @@
+upstream piedrazul_backend {
+  server backend:8080;
+}
+
+upstream piedrazul_keycloak {
+  server keycloak:8080;
+}
+
+server {
+  listen 80;
+  server_name ${NGINX_API_HOST};
+  return 301 https://$host$request_uri;
+}
+
+server {
+  listen 80;
+  server_name ${NGINX_AUTH_HOST};
+  return 301 https://$host$request_uri;
+}
+
+server {
+  listen 443 ssl http2;
+  server_name ${NGINX_API_HOST};
+
+  ssl_certificate /etc/nginx/certs/fullchain.pem;
+  ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+  client_max_body_size 10m;
+
+  location /api/v1/citas/agenda-dinamica/stream {
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_pass http://piedrazul_backend;
+  }
+
+  location / {
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_pass http://piedrazul_backend;
+  }
+}
+
+server {
+  listen 443 ssl http2;
+  server_name ${NGINX_AUTH_HOST};
+
+  ssl_certificate /etc/nginx/certs/fullchain.pem;
+  ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+  client_max_body_size 10m;
+
+  location / {
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_pass http://piedrazul_keycloak;
+  }
+}
+
