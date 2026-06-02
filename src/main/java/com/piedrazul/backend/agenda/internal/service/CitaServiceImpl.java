@@ -1264,7 +1264,7 @@ public class CitaServiceImpl implements CitaService {
 
             long total = programadas + atendidas + canceladas;
 
-            double porcentaje = 0.0;
+            double porcentaje = total > 0 ? (atendidas * 100.0) / total : 0.0;
 
             return ResumenCitasDto.builder()
                     .desde(desde)
