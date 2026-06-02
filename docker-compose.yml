@@ -5,10 +5,11 @@ services:
     image: postgres:15-alpine
     container_name: piedrazul_db
     environment:
-      # PostgreSQL del stack Docker
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # PostgreSQL del stack Docker (provide safe defaults so `docker compose`
+      # doesn't emit warnings when an env-file wasn't passed)
+      POSTGRES_DB: ${POSTGRES_DB:-piedrazul_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-piedrazul_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-piedrazul_pass}
     ports:
       - "5433:5432"
     volumes:
@@ -26,8 +27,8 @@ services:
     container_name: piedrazul_pgadmin
     environment:
       # Credenciales para la UI de administración
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@piedrazul.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
     ports:
       - "5050:80"
     depends_on:
@@ -41,28 +42,30 @@ services:
     # --import-realm: importa automáticamente los JSON de /opt/keycloak/data/import
     # --db: usa PostgreSQL como backend
     command: start-dev --import-realm --db=postgres
+    env_file:
+      - .env.dev
     environment:
       # Conexión de Keycloak a PostgreSQL
       KC_DB: postgres
-      KC_DB_URL: ${KC_DB_URL}
-      KC_DB_USERNAME: ${KC_DB_USERNAME}
-      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      KC_DB_URL: ${KC_DB_URL:-jdbc:postgresql://postgres:5432/keycloak_db}
+      KC_DB_USERNAME: ${KC_DB_USERNAME:-piedrazul_user}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-piedrazul_pass}
       # Host y salud de Keycloak
-      KC_HTTP_PORT: 8080
+      KC_HTTP_PORT: 8180
       KC_HOSTNAME: ${KC_HOSTNAME:-keycloak}
-      KC_HOSTNAME_PORT: ${KC_HOSTNAME_PORT:-8080}
+      KC_HOSTNAME_PORT: ${KC_HOSTNAME_PORT:-8180}
       KC_HOSTNAME_STRICT: ${KC_HOSTNAME_STRICT:-false}
       KC_HOSTNAME_STRICT_HTTPS: ${KC_HOSTNAME_STRICT_HTTPS:-false}
       KC_HEALTH_ENABLED: ${KC_HEALTH_ENABLED:-true}
     volumes:
       - ./docker/keycloak:/opt/keycloak/data/import
     ports:
-      - "8180:8080"
+      - "8180:8180"
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080; echo -e \"GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; grep -q \"200 OK\" <&3' || exit 1"]
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8180; echo -e \"GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; grep -q \"200 OK\" <&3' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -73,19 +76,26 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: piedrazul_backend
+    env_file:
+      - .env.dev
+    extra_hosts:
+      # Allow the backend container to resolve the public Keycloak hostname
+      # used by the browser (nip.io) back to the host-published service.
+      - "auth.127.0.0.1.nip.io:host-gateway"
     environment:
-      # Spring Boot dentro de Docker Compose prioriza los servicios del stack
-      # y sobrescribe los valores de `.env.dev` para no usar localhost dentro del contenedor.
-      SPRING_PROFILES_ACTIVE: dev
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/piedrazul_dev
-      SPRING_DATASOURCE_USERNAME: piedrazul_user
-      SPRING_DATASOURCE_PASSWORD: piedrazul_pass
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/piedrazul
-      # Configuración de Keycloak consumida por la app
-      KEYCLOAK_SERVER_URL: http://keycloak:8080
-      KEYCLOAK_REALM: piedrazul
-      KEYCLOAK_CLIENT_ID: piedrazul-backend
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      # Spring Boot variables loaded from .env.dev (via env_file above)
+      # These defaults are used only if a variable is not defined in .env.dev.
+      # Priority: .env.dev > these defaults > missing (error)
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/piedrazul_dev}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-piedrazul_user}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-piedrazul_pass}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:-http://auth.127.0.0.1.nip.io:8180/realms/piedrazul}
+      # Keycloak client configuration consumed by the app
+      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://auth.127.0.0.1.nip.io:8180}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-piedrazul}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-piedrazul-backend}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
     ports:
       - "8080:8080"
     depends_on:

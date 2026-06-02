@@ -1,12 +1,14 @@
 package com.piedrazul.backend.pacientes.internal.service;
 
 import com.piedrazul.backend.pacientes.api.PacientesApi;
+import com.piedrazul.backend.pacientes.api.dto.ActualizarPacienteDTO;
 import com.piedrazul.backend.pacientes.api.dto.PacienteResumenDTO;
 import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
 import com.piedrazul.backend.pacientes.internal.domain.Paciente;
 import com.piedrazul.backend.pacientes.internal.repository.PacientesRepository;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
+import com.piedrazul.backend.shared.util.NombreNormalizadorUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,8 +43,8 @@ public class PacientesFacade implements PacientesApi {
                 Paciente.builder()
                         .usuarioId(request.getUsuarioId())
                         .documento(request.getDocumento())
-                        .nombres(request.getNombres())
-                        .apellidos(request.getApellidos())
+                        .nombres(NombreNormalizadorUtil.normalizar(request.getNombres()))
+                        .apellidos(NombreNormalizadorUtil.normalizar(request.getApellidos()))
                         .celular(request.getCelular())
                         .correo(request.getCorreo())
                         .fechaNacimiento(request.getFechaNacimiento())
@@ -59,8 +61,8 @@ public class PacientesFacade implements PacientesApi {
                 .orElseGet(() -> pacientesRepository.save(
                         Paciente.builder()
                                 .documento(request.getDocumento())
-                                .nombres(request.getNombres())
-                                .apellidos(request.getApellidos())
+                                .nombres(NombreNormalizadorUtil.normalizar(request.getNombres()))
+                                .apellidos(NombreNormalizadorUtil.normalizar(request.getApellidos()))
                                 .celular(request.getCelular())
                                 .correo(request.getCorreo())
                                 .fechaNacimiento(request.getFechaNacimiento())
@@ -89,6 +91,20 @@ public class PacientesFacade implements PacientesApi {
         return toResumen(paciente);
     }
 
+    @Override
+    public PacienteResumenDTO actualizarDatosPaciente(Long pacienteId, ActualizarPacienteDTO datos) {
+        Paciente paciente = pacientesRepository.findById(pacienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente", pacienteId));
+
+        if (datos.getNombres() != null) paciente.setNombres(NombreNormalizadorUtil.normalizar(datos.getNombres()));
+        if (datos.getApellidos() != null) paciente.setApellidos(NombreNormalizadorUtil.normalizar(datos.getApellidos()));
+        if (datos.getDocumento() != null) paciente.setDocumento(datos.getDocumento().trim());
+        if (datos.getCelular() != null) paciente.setCelular(datos.getCelular().trim());
+        if (datos.getCorreo() != null) paciente.setCorreo(datos.getCorreo().trim().toLowerCase());
+
+        return toResumen(pacientesRepository.save(paciente));
+    }
+
     private PacienteResumenDTO toResumen(Paciente paciente) {
         return PacienteResumenDTO.builder()
                 .id(paciente.getId())
@@ -96,6 +112,7 @@ public class PacientesFacade implements PacientesApi {
                 .nombres(paciente.getNombres())
                 .apellidos(paciente.getApellidos())
                 .celular(paciente.getCelular())
+                .correo(paciente.getCorreo())
                 .build();
     }
 }

@@ -1,5 +1,9 @@
 package com.piedrazul.backend.agenda.internal.service;
 
+import com.piedrazul.backend.agenda.api.dto.AgendaDiaDto;
+import com.piedrazul.backend.agenda.api.dto.CitaDiaDto;
+import com.piedrazul.backend.agenda.api.dto.CitaHistorialItemDto;
+import com.piedrazul.backend.agenda.api.dto.HistorialPacienteDto;
 import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
 import com.piedrazul.backend.agenda.internal.dto.AgendarAutonomoRequest;
 import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaBloqueResponse;
@@ -12,10 +16,20 @@ import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
 import com.piedrazul.backend.agenda.internal.domain.AgendaDiaLock;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
+import com.piedrazul.backend.agenda.internal.domain.EstadoCita;
+import com.piedrazul.backend.agenda.internal.domain.HistorialCambiosCita;
+import com.piedrazul.backend.agenda.internal.domain.EspecialidadMedica;
+import com.piedrazul.backend.agenda.internal.domain.TipoCita;
+import com.piedrazul.backend.agenda.internal.dto.ActualizarCitaRequest;
+import com.piedrazul.backend.agenda.internal.dto.CitaDetalleResponse;
+import com.piedrazul.backend.agenda.internal.dto.HistorialCambiosCitaResponse;
+import com.piedrazul.backend.agenda.internal.dto.ReagendarCitaRequest;
+import com.piedrazul.backend.pacientes.api.dto.ActualizarPacienteDTO;
 import com.piedrazul.backend.agenda.internal.event.AgendaDinamicaChangedEvent;
 import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.agenda.internal.repository.DiaNoLaboralRepository;
+import com.piedrazul.backend.agenda.internal.repository.HistorialCambiosCitaRepository;
 import com.piedrazul.backend.auth.api.AuthApi;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
@@ -23,7 +37,7 @@ import com.piedrazul.backend.medicos.api.dto.MedicoResumenDTO;
 import com.piedrazul.backend.pacientes.api.PacientesApi;
 import com.piedrazul.backend.pacientes.api.dto.PacienteResumenDTO;
 import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
-import com.piedrazul.backend.shared.audit.AuditService;
+import com.piedrazul.backend.shared.audit.service.AuditService;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
 import org.hibernate.AssertionFailure;
@@ -41,8 +55,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -74,6 +90,7 @@ public class CitaServiceImpl implements CitaService {
 
         private final CitaRepository citaRepository;
         private final AgendaDiaLockRepository agendaDiaLockRepository;
+        private final HistorialCambiosCitaRepository historialRepository;
         private final DisponibilidadService disponibilidadService;
         private final PacientesApi pacientesApi;
         private final MedicosApi medicosApi;
@@ -81,18 +98,22 @@ public class CitaServiceImpl implements CitaService {
         private final AuditService auditService;
         private final ApplicationEventPublisher eventPublisher;
         private final DiaNoLaboralRepository diaNoLaboralRepository;
+        private final ValidadorCita validadorCita;
 
         public CitaServiceImpl(CitaRepository citaRepository,
                                AgendaDiaLockRepository agendaDiaLockRepository,
+                               HistorialCambiosCitaRepository historialRepository,
                                DisponibilidadService disponibilidadService,
                                PacientesApi pacientesApi,
                                MedicosApi medicosApi,
                                AuthApi authApi,
                                AuditService auditService,
                                ApplicationEventPublisher eventPublisher,
-                               DiaNoLaboralRepository diaNoLaboralRepository) {
+                               DiaNoLaboralRepository diaNoLaboralRepository,
+                               ValidadorCita validadorCita) {
             this.citaRepository = citaRepository;
             this.agendaDiaLockRepository = agendaDiaLockRepository;
+            this.historialRepository = historialRepository;
             this.disponibilidadService = disponibilidadService;
             this.pacientesApi = pacientesApi;
             this.medicosApi = medicosApi;
@@ -100,6 +121,7 @@ public class CitaServiceImpl implements CitaService {
             this.auditService = auditService;
             this.eventPublisher = eventPublisher;
             this.diaNoLaboralRepository = diaNoLaboralRepository;
+            this.validadorCita = validadorCita;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -137,7 +159,7 @@ public class CitaServiceImpl implements CitaService {
 
             List<Cita> citasActivas = citaRepository.findByMedicoIdAndFecha(medicoId, fecha)
                     .stream()
-                    .filter(cita -> !"CANCELADA".equalsIgnoreCase(cita.getEstado()))
+                    .filter(cita -> cita.getEstado() != EstadoCita.CANCELADA)
                     .sorted(Comparator.comparing(Cita::getHora))
                     .toList();
 
@@ -161,7 +183,8 @@ public class CitaServiceImpl implements CitaService {
                                 .especialidad(medico.getEspecialidad())
                                 .fecha(cita.getFecha())
                                 .hora(cita.getHora())
-                                .estado(cita.getEstado())
+                                .estado(cita.getEstado().name())
+                                .tipoCita(cita.getTipoCita() != null ? cita.getTipoCita().name() : null)
                                 .observaciones(cita.getObservaciones())
                                 .build();
                     })
@@ -247,14 +270,18 @@ public class CitaServiceImpl implements CitaService {
                                 .build()
                 );
 
+                EspecialidadMedica especialidad = EspecialidadMedica.fromString(medico.getEspecialidad());
+                TipoCita tipoCita = especialidad.getTipoCita();
+                validadorCita.validar(new ContextoValidacionCita(paciente.getId(), tipoCita, request.getMedicoId()));
+
                 Cita cita = Cita.builder()
                         .pacienteId(paciente.getId())
                         .medicoId(request.getMedicoId())
                         .fecha(request.getFecha())
                         .hora(hora)
                         .duracionMinutos(obtenerDuracionEstandar(request.getMedicoId()))
-                        .tipoCita("ESTANDAR")
-                        .estado("PROGRAMADA")
+                        .tipoCita(tipoCita)
+                        .estado(EstadoCita.PROGRAMADA)
                         .observaciones(request.getObservaciones())
                         .creadoPor(obtenerUsuarioIdAutenticado())
                         .build();
@@ -266,8 +293,7 @@ public class CitaServiceImpl implements CitaService {
                         "CREAR",
                         "CITA",
                         guardada.getId(),
-                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}",
-                        "N/A"
+                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
                 );
 
                 publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
@@ -339,7 +365,7 @@ public class CitaServiceImpl implements CitaService {
 
             List<Cita> citasDia = citaRepository.findByMedicoIdAndFecha(medicoId, fecha)
                     .stream()
-                    .filter(cita -> !"CANCELADA".equalsIgnoreCase(cita.getEstado()))
+                    .filter(cita -> cita.getEstado() != EstadoCita.CANCELADA)
                     .sorted(Comparator.comparing(Cita::getHora))
                     .toList();
 
@@ -391,7 +417,7 @@ public class CitaServiceImpl implements CitaService {
 
                 List<Cita> citasDia = citaRepository.findByMedicoIdAndFecha(request.getMedicoId(), request.getFecha())
                         .stream()
-                        .filter(cita -> !"CANCELADA".equalsIgnoreCase(cita.getEstado()))
+                        .filter(cita -> cita.getEstado() != EstadoCita.CANCELADA)
                         .sorted(Comparator.comparing(Cita::getHora))
                         .toList();
 
@@ -400,7 +426,7 @@ public class CitaServiceImpl implements CitaService {
                         .findFirst()
                         .orElseThrow(() -> new BusinessRuleException("No existe una cita de referencia en la hora indicada"));
 
-                if ("PRIORIDAD".equalsIgnoreCase(citaBase.getTipoCita())) {
+                if (TipoCita.PRIORIDAD == citaBase.getTipoCita()) {
                     throw new BusinessRuleException("La cita de referencia ya es prioritaria");
                 }
 
@@ -433,7 +459,7 @@ public class CitaServiceImpl implements CitaService {
                 }
 
                 if (citaRepository.existsByMedicoIdAndFechaAndHoraAndEstadoNot(
-                        request.getMedicoId(), request.getFecha(), inicioPrioridad, "CANCELADA")) {
+                        request.getMedicoId(), request.getFecha(), inicioPrioridad, EstadoCita.CANCELADA)) {
                     throw new BusinessRuleException("El horario prioritario ya se encuentra ocupado");
                 }
 
@@ -458,8 +484,8 @@ public class CitaServiceImpl implements CitaService {
                         .fecha(request.getFecha())
                         .hora(inicioPrioridad)
                         .duracionMinutos(DURACION_PRIORIDAD_MINUTOS)
-                        .tipoCita("PRIORIDAD")
-                        .estado("PROGRAMADA")
+                        .tipoCita(TipoCita.PRIORIDAD)
+                        .estado(EstadoCita.PROGRAMADA)
                         .observaciones(request.getObservaciones())
                         .creadoPor(obtenerUsuarioIdAutenticado())
                         .build();
@@ -471,8 +497,7 @@ public class CitaServiceImpl implements CitaService {
                         "CREAR_PRIORIDAD",
                         "CITA",
                         guardada.getId(),
-                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}",
-                        "N/A"
+                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
                 );
 
                 publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_PRIORIDAD_CREADA");
@@ -513,17 +538,32 @@ public class CitaServiceImpl implements CitaService {
                 }
                 PacienteResumenDTO pacienteResumenDTO = pacientesApi.buscarPorUsuarioId(usuarioId);
 
-                long citasFuturas = citaRepository.countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(pacienteResumenDTO.getId(), "CANCELADA", LocalDate.now());
-                if (citasFuturas >= 3) {
-                    throw new BusinessRuleException("Límite de 3 citas alcanzado");
-                }
-
                 MedicoResumenDTO medicoResumenDTO = medicosApi.obtenerResumenMedico(request.getMedicoId());
                 if (medicoResumenDTO == null) {
                     throw new ResourceNotFoundException("Medico", request.getMedicoId());
                 }
                 if (!medicoResumenDTO.isActivo()) {
                     throw new BusinessRuleException("El medico no esta activo");
+                }
+
+                EspecialidadMedica especialidadMedico = EspecialidadMedica.fromString(medicoResumenDTO.getEspecialidad());
+                TipoCita tipoCita = especialidadMedico.getTipoCita();
+                validadorCita.validar(new ContextoValidacionCita(pacienteResumenDTO.getId(), tipoCita, medicoResumenDTO.getId()));
+
+                boolean tieneCitaActiva = citaRepository.existsByPacienteIdAndEstadoInAndFechaGreaterThanEqual(
+                        pacienteResumenDTO.getId(),
+                        List.of(EstadoCita.PROGRAMADA),
+                        LocalDate.now()
+                );
+                if (tieneCitaActiva) {
+                    throw new BusinessRuleException(
+                            "Ya tienes una cita programada o confirmada. Cancélala antes de agendar una nueva."
+                    );
+                }
+
+                long citasFuturas = citaRepository.countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(pacienteResumenDTO.getId(), EstadoCita.CANCELADA, LocalDate.now());
+                if (citasFuturas >= 3) {
+                    throw new BusinessRuleException("Límite de 3 citas alcanzado");
                 }
 
                 boolean disponibilidad = disponibilidadService.estaDisponible(medicoResumenDTO.getId(), request.getFecha(), request.getHora());
@@ -536,7 +576,8 @@ public class CitaServiceImpl implements CitaService {
                         .medicoId(request.getMedicoId())
                         .fecha(request.getFecha())
                         .hora(request.getHora())
-                        .estado("PROGRAMADA")
+                        .tipoCita(tipoCita)
+                        .estado(EstadoCita.PROGRAMADA)
                         .observaciones(request.getObservaciones())
                         .creadoPor(usuarioId)
                         .build();
@@ -548,8 +589,7 @@ public class CitaServiceImpl implements CitaService {
                         "CREAR",
                         "CITA",
                         guardada.getId(),
-                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}",
-                        "N/A"
+                        "{\"medicoId\":" + guardada.getMedicoId() + ",\"pacienteId\":" + guardada.getPacienteId() + "}"
                 );
 
                 publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_AUTONOMA_CREADA");
@@ -560,6 +600,212 @@ public class CitaServiceImpl implements CitaService {
             } catch (DataIntegrityViolationException ex) {
                 throw conflictoSlotOcupado();
             }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // RF8 — Reagendar cita atendida como seguimiento
+        // ─────────────────────────────────────────────────────────────
+
+        @Override
+        public CitaResponse reagendarCita(Long citaId, ReagendarCitaRequest request) {
+            try {
+                Cita cita = citaRepository.findById(citaId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Cita", citaId));
+
+                // Solo las citas ya atendidas se pueden reagendar como seguimiento
+                if (cita.getEstado() != EstadoCita.ATENDIDA) {
+                    throw new BusinessRuleException("Solo se pueden reagendar citas que ya fueron atendidas");
+                }
+
+                Long medicoId = request.getMedicoNuevoId() != null
+                        ? request.getMedicoNuevoId()
+                        : cita.getMedicoId();
+
+                adquirirBloqueoOptimistaAgenda(medicoId, request.getNuevaFecha());
+
+                LocalTime nuevaHora = parseHora(request.getNuevaHora());
+
+                if (!disponibilidadService.estaDisponible(medicoId, request.getNuevaFecha(), nuevaHora)) {
+                    throw new BusinessRuleException("El horario solicitado no esta disponible");
+                }
+
+                UUID usuarioId = obtenerUsuarioIdAutenticado();
+
+                // Guardar historial antes de mutar la cita
+                historialRepository.save(
+                        HistorialCambiosCita.builder()
+                                .cita(cita)
+                                .fechaAnterior(cita.getFecha())
+                                .horaAnterior(cita.getHora())
+                                .medicoAnteriorId(cita.getMedicoId())
+                                .fechaNueva(request.getNuevaFecha())
+                                .horaNueva(nuevaHora)
+                                .medicoNuevoId(medicoId)
+                                .motivo(request.getMotivo())
+                                .modificadoPor(usuarioId)
+                                .build()
+                );
+
+                LocalDate fechaAnterior = cita.getFecha();
+
+                cita.setFecha(request.getNuevaFecha());
+                cita.setHora(nuevaHora);
+                cita.setMedicoId(medicoId);
+                cita.setEstado(EstadoCita.PROGRAMADA);
+
+                Cita guardada = citaRepository.save(cita);
+
+                auditService.registrar(
+                        usuarioId,
+                        "REPROGRAMAR",
+                        "CITA",
+                        guardada.getId(),
+                        "{\"fechaAnterior\":\"" + fechaAnterior + "\",\"horaNueva\":\"" + nuevaHora + "\",\"motivo\":\"" + request.getMotivo() + "\"}"
+                );
+
+                // Notificar ambas fechas al panel en tiempo real
+                publicarCambioAgenda(guardada.getMedicoId(), fechaAnterior, guardada.getId(), "CITA_REAGENDADA_ORIGEN");
+                publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_REAGENDADA_DESTINO");
+
+                PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(guardada.getPacienteId());
+                MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(guardada.getMedicoId());
+
+                return mapToResponse(guardada, paciente, medico);
+
+            } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
+                throw conflictoConcurrencia();
+            } catch (DataIntegrityViolationException ex) {
+                throw conflictoSlotOcupado();
+            }
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<HistorialCambiosCitaResponse> obtenerHistorialCambios(Long citaId) {
+            if (!citaRepository.existsById(citaId)) {
+                throw new ResourceNotFoundException("Cita", citaId);
+            }
+            return historialRepository.findByCitaIdOrderByCreatedAtDesc(citaId)
+                    .stream()
+                    .map(h -> HistorialCambiosCitaResponse.builder()
+                            .id(h.getId())
+                            .fechaAnterior(h.getFechaAnterior())
+                            .horaAnterior(h.getHoraAnterior())
+                            .medicoAnteriorId(h.getMedicoAnteriorId())
+                            .fechaNueva(h.getFechaNueva())
+                            .horaNueva(h.getHoraNueva())
+                            .medicoNuevoId(h.getMedicoNuevoId())
+                            .motivo(h.getMotivo())
+                            .modificadoPor(h.getModificadoPor())
+                            .creadoEn(h.getCreatedAt())
+                            .build())
+                    .toList();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Detalle y actualización de cita (panel admin/médico)
+        // ─────────────────────────────────────────────────────────────
+
+        @Override
+        @Transactional(readOnly = true)
+        public CitaDetalleResponse obtenerDetalleCita(Long citaId) {
+            Cita cita = citaRepository.findById(citaId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Cita", citaId));
+
+            PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(cita.getPacienteId());
+            MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(cita.getMedicoId());
+
+            boolean esPrimera = !citaRepository.existsByPacienteIdAndIdLessThan(cita.getPacienteId(), citaId);
+
+            return CitaDetalleResponse.builder()
+                    .id(cita.getId())
+                    .pacienteNombre(paciente.getNombres() + " " + paciente.getApellidos())
+                    .pacienteDocumento(paciente.getDocumento())
+                    .pacienteCelular(paciente.getCelular())
+                    .pacienteCorreo(paciente.getCorreo())
+                    .medicoNombre(medico.getNombresCompletos())
+                    .especialidad(medico.getEspecialidad())
+                    .fecha(cita.getFecha())
+                    .hora(cita.getHora())
+                    .estado(cita.getEstado().name())
+                    .observaciones(cita.getObservaciones())
+                    .esPrimeraCita(esPrimera)
+                    .build();
+        }
+
+        @Override
+        public CitaResponse actualizarCita(Long citaId, ActualizarCitaRequest request) {
+            Cita cita = citaRepository.findById(citaId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Cita", citaId));
+
+            boolean hayCambiosCita = request.getNuevoEstado() != null || request.getNuevasObservaciones() != null;
+            boolean hayCambiosPaciente = request.getPacienteNombres() != null
+                    || request.getPacienteApellidos() != null
+                    || request.getPacienteDocumento() != null
+                    || request.getPacienteCelular() != null
+                    || request.getPacienteCorreo() != null;
+
+            if (!hayCambiosCita && !hayCambiosPaciente) {
+                throw new BusinessRuleException("Debe especificar al menos un campo a actualizar.");
+            }
+
+            // Regla: MEDICO solo puede modificar datos del paciente en la primera cita
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            boolean esMedico = auth != null && auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_MEDICO"));
+
+            if (esMedico && hayCambiosPaciente && citaRepository.existsByPacienteIdAndIdLessThan(cita.getPacienteId(), citaId)) {
+                throw new BusinessRuleException("Solo puedes modificar los datos del paciente en la primera cita.");
+            }
+
+            // Validar transicion de estado
+            if (request.getNuevoEstado() != null) {
+                EstadoCita actual = cita.getEstado();
+                EstadoCita nuevo;
+                try {
+                    nuevo = EstadoCita.valueOf(request.getNuevoEstado());
+                } catch (IllegalArgumentException e) {
+                    throw new BusinessRuleException("Estado no válido: " + request.getNuevoEstado());
+                }
+                boolean transicionValida = actual == EstadoCita.PROGRAMADA
+                        && (nuevo == EstadoCita.ATENDIDA || nuevo == EstadoCita.CANCELADA);
+                if (!transicionValida) {
+                    throw new BusinessRuleException("Transicion de estado no permitida: " + actual + " -> " + nuevo);
+                }
+                cita.setEstado(nuevo);
+            }
+
+            if (request.getNuevasObservaciones() != null) {
+                cita.setObservaciones(request.getNuevasObservaciones());
+            }
+
+            citaRepository.save(cita);
+
+            if (hayCambiosPaciente) {
+                ActualizarPacienteDTO datosP = new ActualizarPacienteDTO(
+                        request.getPacienteNombres(),
+                        request.getPacienteApellidos(),
+                        request.getPacienteDocumento(),
+                        request.getPacienteCelular(),
+                        request.getPacienteCorreo()
+                );
+                pacientesApi.actualizarDatosPaciente(cita.getPacienteId(), datosP);
+            }
+
+            UUID usuarioId = obtenerUsuarioIdAutenticado();
+            auditService.registrar(
+                    usuarioId,
+                    "ACTUALIZAR",
+                    "CITA",
+                    cita.getId(),
+                    "{\"nuevoEstado\":\"" + request.getNuevoEstado() + "\"}"
+            );
+
+            publicarCambioAgenda(cita.getMedicoId(), cita.getFecha(), citaId, "CITA_ACTUALIZADA");
+
+            PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(cita.getPacienteId());
+            MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(cita.getMedicoId());
+            return mapToResponse(cita, paciente, medico);
         }
 
         private void publicarCambioAgenda(Long medicoId, LocalDate fecha, Long citaId, String accion) {
@@ -619,16 +865,24 @@ public class CitaServiceImpl implements CitaService {
 
             if (authentication instanceof JwtAuthenticationToken jwtAuth) {
                 String keycloakUserId = jwtAuth.getToken().getSubject();
+                // Prefer internal DB UUID; fall back to Keycloak subject UUID directly
+                // (covers admin/bootstrap users not registered through the app)
                 return authApi.findByKeycloakId(keycloakUserId)
                         .map(com.piedrazul.backend.auth.api.dto.UsuarioInfoDto::getId)
-                        .orElse(null);
+                        .orElseGet(() -> {
+                            try { return UUID.fromString(keycloakUserId); }
+                            catch (IllegalArgumentException e) { return null; }
+                        });
             }
 
             Object principal = authentication.getPrincipal();
             if (principal instanceof String principalStr) {
                 return authApi.findByKeycloakId(principalStr)
                         .map(com.piedrazul.backend.auth.api.dto.UsuarioInfoDto::getId)
-                        .orElse(null);
+                        .orElseGet(() -> {
+                            try { return UUID.fromString(principalStr); }
+                            catch (IllegalArgumentException e) { return null; }
+                        });
             }
 
             return null;
@@ -643,7 +897,8 @@ public class CitaServiceImpl implements CitaService {
                     .especialidad(medico.getEspecialidad())
                     .fecha(cita.getFecha())
                     .hora(cita.getHora())
-                    .estado(cita.getEstado())
+                    .estado(cita.getEstado().name())
+                    .tipoCita(cita.getTipoCita() != null ? cita.getTipoCita().name() : null)
                     .observaciones(cita.getObservaciones())
                     .build();
         }
@@ -865,7 +1120,7 @@ public class CitaServiceImpl implements CitaService {
             PacienteResumenDTO paciente = pacientesPorId.get(cita.getPacienteId());
 
             boolean permitePrioridad = cita.getHora().equals(slot.hora())
-                    && !"PRIORIDAD".equalsIgnoreCase(cita.getTipoCita())
+                    && cita.getTipoCita() != TipoCita.PRIORIDAD
                     && puedeAbrirPrioridadPosterior(citasDia, cita, horario);
 
             return AgendaDinamicaSlotResponse.builder()
@@ -900,7 +1155,7 @@ public class CitaServiceImpl implements CitaService {
                     : 0;
 
             boolean prioridadIntermedia = citasDia.stream().anyMatch(cita ->
-                    "PRIORIDAD".equalsIgnoreCase(cita.getTipoCita())
+                    cita.getTipoCita() == TipoCita.PRIORIDAD
                             && cita.getHora().isAfter(citaActual.getHora())
                             && cita.getHora().isBefore(limite)
             );
@@ -945,23 +1200,21 @@ public class CitaServiceImpl implements CitaService {
 
             List<Object[]> conteos = citaRepository.countByEstadoBetweenFechas(desde, hasta);
 
-            long programadas  = 0;
-            long confirmadas  = 0;
-            long atendidas    = 0;
-            long canceladas   = 0;
+            long programadas = 0;
+            long atendidas   = 0;
+            long canceladas  = 0;
 
             for (Object[] fila : conteos) {
-                String estado = (String) fila[0];
-                long   count  = (Long)   fila[1];
+                EstadoCita estado = (EstadoCita) fila[0];
+                long       count  = (Long)       fila[1];
                 switch (estado) {
-                    case "PROGRAMADA"  -> programadas = count;
-                    case "CONFIRMADA"  -> confirmadas  = count;
-                    case "ATENDIDA"    -> atendidas    = count;
-                    case "CANCELADA"   -> canceladas   = count;
+                    case PROGRAMADA -> programadas = count;
+                    case ATENDIDA   -> atendidas   = count;
+                    case CANCELADA  -> canceladas  = count;
                 }
             }
 
-            long total = programadas + confirmadas + atendidas + canceladas;
+            long total = programadas + atendidas + canceladas;
 
             double porcentaje = 0.0;
 
@@ -970,7 +1223,6 @@ public class CitaServiceImpl implements CitaService {
                     .hasta(hasta)
                     .totalCitas(total)
                     .citasProgramadas(programadas)
-                    .citasConfirmadas(confirmadas)
                     .citasAtendidas(atendidas)
                     .citasCanceladas(canceladas)
                     .porcentajeOcupacion(porcentaje)
@@ -988,6 +1240,106 @@ public class CitaServiceImpl implements CitaService {
         public boolean tieneCitasFuturas(Long pacienteId) {
             return citaRepository
                     .countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(
-                            pacienteId, "CANCELADA", LocalDate.now()) > 0;
+                            pacienteId, EstadoCita.CANCELADA, LocalDate.now()) > 0;
         }
+
+        @Override
+        @Transactional(readOnly = true)
+        public boolean puedeAgendarEspecialidad() {
+            UUID usuarioId = obtenerUsuarioIdAutenticado();
+            PacienteResumenDTO paciente = pacientesApi.buscarPorUsuarioId(usuarioId);
+            return citaRepository.existsByPacienteIdAndTipoCitaAndEstado(
+                    paciente.getId(), TipoCita.CONSULTA_GENERAL, EstadoCita.ATENDIDA);
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<AgendaDiaDto> listarAgendaCompletaDia(LocalDate dia) {
+            List<Cita> citas = citaRepository.findByFechaOrderByMedicoIdAscHoraAsc(dia);
+
+            // Group by medicoId preserving order
+            Map<Long, List<Cita>> porMedico = new LinkedHashMap<>();
+            for (Cita c : citas) {
+                porMedico.computeIfAbsent(c.getMedicoId(), k -> new ArrayList<>()).add(c);
+            }
+
+            return porMedico.entrySet().stream()
+                    .map(entry -> {
+                        Long medicoId = entry.getKey();
+                        MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(medicoId);
+                        List<CitaDiaDto> citaDtos = entry.getValue().stream()
+                                .map(c -> {
+                                    PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(c.getPacienteId());
+                                    return CitaDiaDto.builder()
+                                            .id(c.getId())
+                                            .pacienteNombre(paciente.getApellidos() + " " + paciente.getNombres())
+                                            .pacienteDocumento(paciente.getDocumento())
+                                            .fecha(c.getFecha())
+                                            .hora(c.getHora())
+                                            .estado(c.getEstado().name())
+                                            .observaciones(c.getObservaciones())
+                                            .build();
+                                })
+                                .toList();
+                        return AgendaDiaDto.builder()
+                                .medicoId(medicoId)
+                                .medicoNombre(medico != null ? medico.getNombresCompletos() : "Médico #" + medicoId)
+                                .especialidad(medico != null ? medico.getEspecialidad() : "")
+                                .fecha(dia)
+                                .citas(citaDtos)
+                                .build();
+                    })
+                    .toList();
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public HistorialPacienteDto listarHistorialPaciente(Long pacienteId) {
+            PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(pacienteId);
+            List<CitaHistorialItemDto> items = citaRepository.findByPacienteIdOrderByFechaDesc(pacienteId)
+                    .stream()
+                    .map(cita -> {
+                        MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(cita.getMedicoId());
+                        return CitaHistorialItemDto.builder()
+                                .fecha(cita.getFecha())
+                                .hora(cita.getHora())
+                                .tipoCita(cita.getTipoCita() != null ? cita.getTipoCita().name() : null)
+                                .estado(cita.getEstado().name())
+                                .medicoNombre(medico != null ? medico.getNombresCompletos() : "")
+                                .especialidad(medico != null ? medico.getEspecialidad() : "")
+                                .observaciones(cita.getObservaciones())
+                                .build();
+                    })
+                    .toList();
+            return HistorialPacienteDto.builder()
+                    .pacienteId(pacienteId)
+                    .nombreCompleto(paciente.getApellidos() + " " + paciente.getNombres())
+                    .documento(paciente.getDocumento())
+                    .citas(items)
+                    .build();
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<CitaResponse> listarMisCitas() {
+            UUID usuarioId = obtenerUsuarioIdAutenticado();
+            PacienteResumenDTO paciente = pacientesApi.buscarPorUsuarioId(usuarioId);
+            return citaRepository.findByPacienteIdOrderByFechaDesc(paciente.getId())
+                    .stream()
+                    .map(cita -> {
+                        MedicoResumenDTO medico = medicosApi.obtenerResumenMedico(cita.getMedicoId());
+                        return CitaResponse.builder()
+                                .id(cita.getId())
+                                .medicoNombre(medico != null ? medico.getNombresCompletos() : "")
+                                .especialidad(medico != null ? medico.getEspecialidad() : "")
+                                .fecha(cita.getFecha())
+                                .hora(cita.getHora())
+                                .estado(cita.getEstado().name())
+                                .tipoCita(cita.getTipoCita() != null ? cita.getTipoCita().name() : null)
+                                .observaciones(cita.getObservaciones())
+                                .build();
+                    })
+                    .toList();
+        }
+
 }

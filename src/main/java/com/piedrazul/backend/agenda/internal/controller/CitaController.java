@@ -1,12 +1,18 @@
 package com.piedrazul.backend.agenda.internal.controller;
 
+import com.piedrazul.backend.agenda.api.dto.AgendaDiaDto;
+import com.piedrazul.backend.agenda.api.dto.HistorialPacienteDto;
 import com.piedrazul.backend.agenda.internal.dto.AgendarAutonomoRequest;
 import com.piedrazul.backend.agenda.internal.dto.AgendaDinamicaResponse;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
+import com.piedrazul.backend.agenda.internal.dto.ActualizarCitaRequest;
+import com.piedrazul.backend.agenda.internal.dto.CitaDetalleResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaPrioritariaRequest;
+import com.piedrazul.backend.agenda.internal.dto.HistorialCambiosCitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.PrimerHorarioDisponibleResponse;
+import com.piedrazul.backend.agenda.internal.dto.ReagendarCitaRequest;
 import com.piedrazul.backend.agenda.internal.realtime.AgendaDinamicaSseHub;
 import com.piedrazul.backend.agenda.internal.service.CitaService;
 import com.piedrazul.backend.agenda.internal.service.DisponibilidadService;
@@ -20,6 +26,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/citas")
@@ -106,5 +113,58 @@ public class CitaController {
     public ResponseEntity<CitaResponse> crearCitaPrioritaria(
             @Valid @RequestBody CrearCitaPrioritariaRequest request) {
         return ResponseEntity.status(201).body(citaService.crearCitaPrioritaria(request));
+    }
+
+    @PatchMapping("/{id}/reagendar")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<CitaResponse> reagendarCita(
+            @PathVariable Long id,
+            @Valid @RequestBody ReagendarCitaRequest request) {
+        return ResponseEntity.ok(citaService.reagendarCita(id, request));
+    }
+
+    @GetMapping("/{id}/historial")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<List<HistorialCambiosCitaResponse>> obtenerHistorial(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(citaService.obtenerHistorialCambios(id));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<CitaDetalleResponse> obtenerDetalle(@PathVariable Long id) {
+        return ResponseEntity.ok(citaService.obtenerDetalleCita(id));
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasAnyRole('MEDICO', 'ADMIN')")
+    public ResponseEntity<CitaResponse> actualizarCita(
+            @PathVariable Long id,
+            @RequestBody ActualizarCitaRequest request) {
+        return ResponseEntity.ok(citaService.actualizarCita(id, request));
+    }
+
+    @GetMapping("/autonomo/puede-especialidad")
+    @PreAuthorize("hasRole('PACIENTE')")
+    public ResponseEntity<Map<String, Boolean>> puedeAgendarEspecialidad() {
+        return ResponseEntity.ok(Map.of("puedeEspecialidad", citaService.puedeAgendarEspecialidad()));
+    }
+
+    @GetMapping("/paciente/me")
+    @PreAuthorize("hasRole('PACIENTE')")
+    public ResponseEntity<List<CitaResponse>> misCitas() {
+        return ResponseEntity.ok(citaService.listarMisCitas());
+    }
+
+    @GetMapping("/paciente/{pacienteId}")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<HistorialPacienteDto> historialPaciente(@PathVariable Long pacienteId) {
+        return ResponseEntity.ok(citaService.listarHistorialPaciente(pacienteId));
+    }
+
+    @GetMapping("/agenda-completa")
+    @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
+    public ResponseEntity<List<AgendaDiaDto>> agendaCompletaDia(@RequestParam LocalDate fecha) {
+        return ResponseEntity.ok(citaService.listarAgendaCompletaDia(fecha));
     }
 }

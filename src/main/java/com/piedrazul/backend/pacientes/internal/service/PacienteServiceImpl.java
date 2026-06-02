@@ -10,6 +10,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +51,13 @@ public class PacienteServiceImpl implements PacienteService {
                 .stream()
                 .map(this::toSugerenciaResponse)
                 .toList();
+    }
+
+    @Override
+    public PacienteResponse buscarPorUsuarioId(UUID usuarioId) {
+        Paciente paciente = pacienteRepository.findByUsuarioId(usuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente", usuarioId));
+        return toResponse(paciente);
     }
 
     private PacienteResponse toResponse(Paciente p) {

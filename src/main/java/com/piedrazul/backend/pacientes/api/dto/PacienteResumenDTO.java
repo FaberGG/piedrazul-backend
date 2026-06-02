@@ -19,5 +19,6 @@ public class PacienteResumenDTO {
     private String nombres;
     private String apellidos;
     private String celular;
+    private String correo;
 }
 

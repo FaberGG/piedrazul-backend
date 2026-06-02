@@ -2,6 +2,7 @@ package com.piedrazul.backend.agenda.api;
 
 import com.piedrazul.backend.agenda.api.dto.AgendaDiaDto;
 import com.piedrazul.backend.agenda.api.dto.CitaDiaDto;
+import com.piedrazul.backend.agenda.api.dto.HistorialPacienteDto;
 import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
 import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.service.CitaService;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
 /**
  * Implementación de la API pública del módulo AGENDA.
  *
@@ -43,6 +45,16 @@ public class AgendaFacade implements AgendaApi {
     @Override
     public boolean tieneCitasFuturas(Long pacienteId) {
         return citaService.tieneCitasFuturas(pacienteId);
+    }
+
+    @Override
+    public HistorialPacienteDto obtenerHistorialPaciente(Long pacienteId) {
+        return citaService.listarHistorialPaciente(pacienteId);
+    }
+
+    @Override
+    public List<AgendaDiaDto> obtenerAgendaDiaCompleta(LocalDate dia) {
+        return citaService.listarAgendaCompletaDia(dia);
     }
 
     @Override

@@ -1,4 +1,4 @@
-package com.piedrazul.backend.shared.audit;
+package com.piedrazul.backend.shared.audit.domain;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -51,4 +51,3 @@ public class Auditoria {
         this.timestamp = LocalDateTime.now();
     }
 }
-

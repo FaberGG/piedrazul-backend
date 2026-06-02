@@ -1,6 +1,8 @@
 package com.piedrazul.backend.agenda.internal.service;
 
 import com.piedrazul.backend.agenda.internal.domain.Cita;
+import com.piedrazul.backend.agenda.internal.domain.EstadoCita;
+import com.piedrazul.backend.agenda.internal.domain.TipoCita;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
@@ -54,9 +56,9 @@ class DisponibilidadServiceImplTest {
     @DisplayName("No debe listar 9:30 como disponible cuando no cabe cita estandar completa")
     void calcularHorariosDisponibles_noDebeListarHuecoInutilizableTrasPrioridad() {
         List<Cita> citas = List.of(
-                Cita.builder().medicoId(medicoId).fecha(fecha).hora(LocalTime.of(9, 0)).duracionMinutos(15).estado("PROGRAMADA").tipoCita("ESTANDAR").build(),
-                Cita.builder().medicoId(medicoId).fecha(fecha).hora(LocalTime.of(9, 15)).duracionMinutos(5).estado("PROGRAMADA").tipoCita("PRIORIDAD").build(),
-                Cita.builder().medicoId(medicoId).fecha(fecha).hora(LocalTime.of(9, 45)).duracionMinutos(30).estado("PROGRAMADA").tipoCita("ESTANDAR").build()
+                Cita.builder().medicoId(medicoId).fecha(fecha).hora(LocalTime.of(9, 0)).duracionMinutos(15).estado(EstadoCita.PROGRAMADA).tipoCita(TipoCita.ESTANDAR).build(),
+                Cita.builder().medicoId(medicoId).fecha(fecha).hora(LocalTime.of(9, 15)).duracionMinutos(5).estado(EstadoCita.PROGRAMADA).tipoCita(TipoCita.PRIORIDAD).build(),
+                Cita.builder().medicoId(medicoId).fecha(fecha).hora(LocalTime.of(9, 45)).duracionMinutos(30).estado(EstadoCita.PROGRAMADA).tipoCita(TipoCita.ESTANDAR).build()
         );
 
         when(medicosApi.obtenerHorarioAtencion(medicoId)).thenReturn(horario30);
@@ -71,7 +73,7 @@ class DisponibilidadServiceImplTest {
     @DisplayName("estaDisponible debe retornar false para 9:30 si se solapa por duracion")
     void estaDisponible_debeRetornarFalseEnSlotQueSeSolapa() {
         List<Cita> citas = List.of(
-                Cita.builder().medicoId(medicoId).fecha(fecha).hora(LocalTime.of(9, 45)).duracionMinutos(30).estado("PROGRAMADA").tipoCita("ESTANDAR").build()
+                Cita.builder().medicoId(medicoId).fecha(fecha).hora(LocalTime.of(9, 45)).duracionMinutos(30).estado(EstadoCita.PROGRAMADA).tipoCita(TipoCita.ESTANDAR).build()
         );
 
         when(medicosApi.obtenerHorarioAtencion(medicoId)).thenReturn(horario30);
@@ -86,7 +88,7 @@ class DisponibilidadServiceImplTest {
     @DisplayName("estaDisponible debe retornar true cuando el rango completo no se solapa")
     void estaDisponible_debeRetornarTrueEnSlotValido() {
         List<Cita> citas = List.of(
-                Cita.builder().medicoId(medicoId).fecha(fecha).hora(LocalTime.of(9, 45)).duracionMinutos(30).estado("PROGRAMADA").tipoCita("ESTANDAR").build()
+                Cita.builder().medicoId(medicoId).fecha(fecha).hora(LocalTime.of(9, 45)).duracionMinutos(30).estado(EstadoCita.PROGRAMADA).tipoCita(TipoCita.ESTANDAR).build()
         );
 
         when(medicosApi.obtenerHorarioAtencion(medicoId)).thenReturn(horario30);

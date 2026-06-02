@@ -13,4 +13,6 @@ public interface PacienteService {
     PacienteResponse buscarPorId(Long id);
 
     List<PacienteSugerenciaResponse> buscarPorDocumentoPrefijo(String documento, int limit);
+
+    PacienteResponse buscarPorUsuarioId(java.util.UUID usuarioId);
 }
