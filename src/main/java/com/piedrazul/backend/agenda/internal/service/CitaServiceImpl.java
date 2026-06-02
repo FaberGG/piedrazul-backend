@@ -747,7 +747,8 @@ public class CitaServiceImpl implements CitaService {
                     throw new BusinessRuleException("Estado no válido: " + request.getNuevoEstado());
                 }
                 boolean transicionValida = actual == EstadoCita.PROGRAMADA
-                        && (nuevo == EstadoCita.ATENDIDA || nuevo == EstadoCita.CANCELADA);
+                        && (nuevo == EstadoCita.ATENDIDA || nuevo == EstadoCita.CANCELADA || nuevo == EstadoCita.INASISTENCIA);
+                        
                 if (!transicionValida) {
                     throw new BusinessRuleException("Transicion de estado no permitida: " + actual + " -> " + nuevo);
                 }
