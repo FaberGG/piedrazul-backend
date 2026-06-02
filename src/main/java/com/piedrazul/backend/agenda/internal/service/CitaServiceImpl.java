@@ -294,13 +294,6 @@ public class CitaServiceImpl implements CitaService {
                 );
 
                 publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_MANUAL_CREADA");
-                eventPublisher.publishEvent(new CitaAgendadaEvent(
-                        String.valueOf(paciente.getId()),
-                        paciente.getCelular(),
-                        paciente.getCorreo(),
-                        medico.getNombresCompletos(),
-                        LocalDateTime.of(guardada.getFecha(), guardada.getHora())
-                ));
                 enviarConfirmacionEmail(guardada, paciente, medico);
                 return mapToResponse(guardada, paciente, medico);
             } catch (AgendaLockConcurrencyException | ObjectOptimisticLockingFailureException | AssertionFailure ex) {
