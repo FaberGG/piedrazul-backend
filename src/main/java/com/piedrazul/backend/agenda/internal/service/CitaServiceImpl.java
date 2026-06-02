@@ -14,6 +14,7 @@ import com.piedrazul.backend.agenda.internal.domain.AgendaDiaLock;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
 import com.piedrazul.backend.agenda.internal.domain.EstadoCita;
 import com.piedrazul.backend.agenda.internal.domain.HistorialCambiosCita;
+import com.piedrazul.backend.agenda.internal.domain.EspecialidadMedica;
 import com.piedrazul.backend.agenda.internal.domain.TipoCita;
 import com.piedrazul.backend.agenda.internal.dto.ActualizarCitaRequest;
 import com.piedrazul.backend.agenda.internal.dto.CitaDetalleResponse;
@@ -55,7 +56,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
     /**
@@ -78,8 +78,6 @@ public class CitaServiceImpl implements CitaService {
         private static final int HORIZONTE_DIAS_BUSQUEDA = 30;
         private static final int DURACION_MINIMA_ATENCION_MINUTOS = 15;
         private static final int DURACION_PRIORIDAD_MINUTOS = 5;
-        private static final Set<TipoCita> TIPOS_ESPECIALIDAD =
-                Set.of(TipoCita.TERAPIA_NEURAL, TipoCita.QUIROPRAXIA, TipoCita.FISIOTERAPIA);
         private static final DateTimeFormatter HORA_PANEL_FORMAT = DateTimeFormatter.ofPattern("h:mm a", Locale.US);
         private static final DateTimeFormatter HORA_AGENDA_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
@@ -92,6 +90,7 @@ public class CitaServiceImpl implements CitaService {
         private final AuthApi authApi;
         private final AuditService auditService;
         private final ApplicationEventPublisher eventPublisher;
+        private final ValidadorCita validadorCita;
 
         public CitaServiceImpl(CitaRepository citaRepository,
                                AgendaDiaLockRepository agendaDiaLockRepository,
@@ -101,7 +100,8 @@ public class CitaServiceImpl implements CitaService {
                                MedicosApi medicosApi,
                                AuthApi authApi,
                                AuditService auditService,
-                               ApplicationEventPublisher eventPublisher) {
+                               ApplicationEventPublisher eventPublisher,
+                               ValidadorCita validadorCita) {
             this.citaRepository = citaRepository;
             this.agendaDiaLockRepository = agendaDiaLockRepository;
             this.historialRepository = historialRepository;
@@ -111,6 +111,7 @@ public class CitaServiceImpl implements CitaService {
             this.authApi = authApi;
             this.auditService = auditService;
             this.eventPublisher = eventPublisher;
+            this.validadorCita = validadorCita;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -257,8 +258,9 @@ public class CitaServiceImpl implements CitaService {
                                 .build()
                 );
 
-                TipoCita tipoCitaManual = parseTipoCita(request.getTipoCita());
-                validarTipoCitaParaPaciente(paciente.getId(), tipoCitaManual);
+                EspecialidadMedica especialidad = EspecialidadMedica.fromString(medico.getEspecialidad());
+                TipoCita tipoCita = especialidad.getTipoCita();
+                validadorCita.validar(new ContextoValidacionCita(paciente.getId(), tipoCita, request.getMedicoId()));
 
                 Cita cita = Cita.builder()
                         .pacienteId(paciente.getId())
@@ -266,7 +268,7 @@ public class CitaServiceImpl implements CitaService {
                         .fecha(request.getFecha())
                         .hora(hora)
                         .duracionMinutos(obtenerDuracionEstandar(request.getMedicoId()))
-                        .tipoCita(tipoCitaManual)
+                        .tipoCita(tipoCita)
                         .estado(EstadoCita.PROGRAMADA)
                         .observaciones(request.getObservaciones())
                         .creadoPor(obtenerUsuarioIdAutenticado())
@@ -522,10 +524,17 @@ public class CitaServiceImpl implements CitaService {
                 }
                 PacienteResumenDTO pacienteResumenDTO = pacientesApi.buscarPorUsuarioId(usuarioId);
 
-                // Bloquear si el paciente ya tiene una cita PROGRAMADA futura.
-                // ATENDIDA y CANCELADA se consideran resueltas y no bloquean nuevas reservas.
-                TipoCita tipoCita = parseTipoCita(request.getTipoCita());
-                validarTipoCitaParaPaciente(pacienteResumenDTO.getId(), tipoCita);
+                MedicoResumenDTO medicoResumenDTO = medicosApi.obtenerResumenMedico(request.getMedicoId());
+                if (medicoResumenDTO == null) {
+                    throw new ResourceNotFoundException("Medico", request.getMedicoId());
+                }
+                if (!medicoResumenDTO.isActivo()) {
+                    throw new BusinessRuleException("El medico no esta activo");
+                }
+
+                EspecialidadMedica especialidadMedico = EspecialidadMedica.fromString(medicoResumenDTO.getEspecialidad());
+                TipoCita tipoCita = especialidadMedico.getTipoCita();
+                validadorCita.validar(new ContextoValidacionCita(pacienteResumenDTO.getId(), tipoCita, medicoResumenDTO.getId()));
 
                 boolean tieneCitaActiva = citaRepository.existsByPacienteIdAndEstadoInAndFechaGreaterThanEqual(
                         pacienteResumenDTO.getId(),
@@ -541,14 +550,6 @@ public class CitaServiceImpl implements CitaService {
                 long citasFuturas = citaRepository.countByPacienteIdAndEstadoNotAndFechaGreaterThanEqual(pacienteResumenDTO.getId(), EstadoCita.CANCELADA, LocalDate.now());
                 if (citasFuturas >= 3) {
                     throw new BusinessRuleException("Límite de 3 citas alcanzado");
-                }
-
-                MedicoResumenDTO medicoResumenDTO = medicosApi.obtenerResumenMedico(request.getMedicoId());
-                if (medicoResumenDTO == null) {
-                    throw new ResourceNotFoundException("Medico", request.getMedicoId());
-                }
-                if (!medicoResumenDTO.isActivo()) {
-                    throw new BusinessRuleException("El medico no esta activo");
                 }
 
                 boolean disponibilidad = disponibilidadService.estaDisponible(medicoResumenDTO.getId(), request.getFecha(), request.getHora());
@@ -1253,22 +1254,4 @@ public class CitaServiceImpl implements CitaService {
                     .toList();
         }
 
-        private TipoCita parseTipoCita(String raw) {
-            if (raw == null || raw.isBlank()) return TipoCita.CONSULTA_GENERAL;
-            try {
-                return TipoCita.valueOf(raw.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                throw new BusinessRuleException("Tipo de cita no válido: " + raw);
-            }
-        }
-
-        private void validarTipoCitaParaPaciente(Long pacienteId, TipoCita tipoCita) {
-            if (!TIPOS_ESPECIALIDAD.contains(tipoCita)) return;
-            boolean tieneConsultaGeneral = citaRepository.existsByPacienteIdAndTipoCitaAndEstado(
-                    pacienteId, TipoCita.CONSULTA_GENERAL, EstadoCita.ATENDIDA);
-            if (!tieneConsultaGeneral) {
-                throw new BusinessRuleException(
-                        "Debe tener una Consulta General atendida antes de agendar " + tipoCita.name());
-            }
-        }
 }
