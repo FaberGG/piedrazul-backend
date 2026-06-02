@@ -108,8 +108,8 @@ public class CitaServiceImpl implements CitaService {
                                AuthApi authApi,
                                AuditService auditService,
                                ApplicationEventPublisher eventPublisher,
-                               DiaNoLaboralRepository diaNoLaboralRepository,
-                               ValidadorCita validadorCita,EmailService emailService) {
+                               ValidadorCita validadorCita,
+                               EmailService emailService) {
             this.citaRepository = citaRepository;
             this.agendaDiaLockRepository = agendaDiaLockRepository;
             this.historialRepository = historialRepository;
