@@ -1,5 +1,6 @@
 package com.piedrazul.backend.shared.security;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -11,6 +12,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("unit")
 class SecurityConfigJwtConverterTest {
 
     private final SecurityConfig securityConfig = new SecurityConfig(new AppCorsProperties());

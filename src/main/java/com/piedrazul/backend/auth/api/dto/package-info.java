@@ -20,6 +20,6 @@
  */
 
 
-@org.springframework.modulith.NamedInterface("api")
+@org.springframework.modulith.NamedInterface("api-dto")
 package com.piedrazul.backend.auth.api.dto;
 

@@ -25,7 +25,7 @@ import com.piedrazul.backend.agenda.internal.dto.HistorialCambiosCitaResponse;
 import com.piedrazul.backend.agenda.internal.dto.ReagendarCitaRequest;
 import com.piedrazul.backend.pacientes.api.dto.ActualizarPacienteDTO;
 import com.piedrazul.backend.agenda.internal.event.AgendaDinamicaChangedEvent;
-import com.piedrazul.backend.agenda.internal.event.ConfirmacionCitaEvent;
+import com.piedrazul.backend.agenda.api.ConfirmacionCitaEvent;
 import com.piedrazul.backend.agenda.internal.repository.HistorialCambiosCitaRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
 import com.piedrazul.backend.medicos.api.MedicosApi;

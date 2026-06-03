@@ -1,4 +1,4 @@
-package com.piedrazul.backend.agenda;
+package com.piedrazul.backend.agenda.internal.service;
 
 import com.piedrazul.backend.agenda.internal.domain.AgendaDiaLock;
 import com.piedrazul.backend.agenda.internal.domain.Cita;
@@ -9,9 +9,6 @@ import com.piedrazul.backend.agenda.internal.dto.AgendaResponse;
 import com.piedrazul.backend.agenda.internal.dto.CrearCitaManualRequest;
 import com.piedrazul.backend.agenda.internal.repository.AgendaDiaLockRepository;
 import com.piedrazul.backend.agenda.internal.repository.CitaRepository;
-import com.piedrazul.backend.agenda.internal.service.CitaServiceImpl;
-import com.piedrazul.backend.agenda.internal.service.DisponibilidadService;
-import com.piedrazul.backend.agenda.internal.service.ValidadorCita;
 import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
 import com.piedrazul.backend.medicos.api.dto.MedicoResumenDTO;
@@ -25,6 +22,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.junit.jupiter.api.Tag;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -35,7 +33,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,6 +42,7 @@ import static org.mockito.Mockito.*;
 /**
  * Tests unitarios para RF1 — Listar agenda de un médico por fecha.
  */
+@Tag("unit")
 @ExtendWith(MockitoExtension.class)
 class CitaServiceImplTest {
 
@@ -56,6 +54,7 @@ class CitaServiceImplTest {
     @Mock private PacientesApi pacientesApi;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private ValidadorCita validadorCita;
+    @Mock private CitaServiceHelper helper;
 
     @InjectMocks
     private CitaServiceImpl citaService;
@@ -285,14 +284,11 @@ class CitaServiceImplTest {
     @DisplayName("RF2 — Si existe conflicto de version en lock de agenda debe informar concurrencia")
     void crearCitaManual_conflictoOptimistaDebeInformarConcurrencia() {
         LocalDate fechaFutura = LocalDate.now().plusDays(2);
-        AgendaDiaLock lock = new AgendaDiaLock();
-        lock.setMedicoId(1L);
-        lock.setFecha(fechaFutura);
 
-        when(agendaDiaLockRepository.findByMedicoIdAndFecha(1L, fechaFutura))
-                .thenReturn(Optional.of(lock));
-        when(agendaDiaLockRepository.saveAndFlush(any(AgendaDiaLock.class)))
-                .thenThrow(new ObjectOptimisticLockingFailureException(AgendaDiaLock.class, 1L));
+        doThrow(new ObjectOptimisticLockingFailureException(AgendaDiaLock.class, 1L))
+                .when(helper).adquirirBloqueoOptimistaAgenda(any(), any());
+        when(helper.conflictoConcurrencia())
+                .thenReturn(new BusinessRuleException("El horario seleccionado ya esta ocupado"));
 
         CrearCitaManualRequest request = new CrearCitaManualRequest(
                 "1234567890",
@@ -310,7 +306,7 @@ class CitaServiceImplTest {
 
         assertThatThrownBy(() -> citaService.crearCitaManual(request))
                 .isInstanceOf(BusinessRuleException.class)
-                .hasMessageContaining("concurrentemente");
+                .hasMessageContaining("ocupado");
     }
 
     @Test
@@ -328,8 +324,9 @@ class CitaServiceImplTest {
                 .apellidos("Perez")
                 .build();
 
-        when(agendaDiaLockRepository.findByMedicoIdAndFecha(1L, fecha)).thenReturn(Optional.of(lock));
-        when(agendaDiaLockRepository.saveAndFlush(any(AgendaDiaLock.class))).thenReturn(lock);
+        when(helper.parseHora("08:00:00")).thenReturn(LocalTime.of(8, 0));
+        when(helper.conflictoSlotOcupado())
+                .thenReturn(new BusinessRuleException("El horario seleccionado ya esta ocupado"));
         when(medicosApi.obtenerResumenMedico(1L)).thenReturn(medicoActivo);
         when(medicosApi.obtenerHorarioAtencion(1L)).thenReturn(horarioEstandar);
         when(disponibilidadService.estaDisponible(1L, fecha, LocalTime.of(8, 0))).thenReturn(true);

@@ -1,6 +1,6 @@
 package com.piedrazul.backend.Notificaciones.services;
 
-import com.piedrazul.backend.agenda.internal.event.ConfirmacionCitaEvent;
+import com.piedrazul.backend.agenda.api.ConfirmacionCitaEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 

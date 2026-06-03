@@ -15,4 +15,6 @@ public interface PacienteService {
     List<PacienteSugerenciaResponse> buscarPorDocumentoPrefijo(String documento, int limit);
 
     PacienteResponse buscarPorUsuarioId(java.util.UUID usuarioId);
+
+    PacienteResponse buscarPorKeycloakId(String keycloakId);
 }

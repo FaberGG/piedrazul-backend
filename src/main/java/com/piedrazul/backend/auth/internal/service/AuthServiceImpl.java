@@ -69,6 +69,7 @@ public class AuthServiceImpl implements AuthService {
         pacientesApi.registrarPacienteConUsuario(
                 RegistroPacienteDTO.builder()
                         .usuarioId(usuario.getId())
+                        .keycloakId(keycloakUserId)
                         .documento(request.getDocumento())
                         .nombres(request.getNombres())
                         .apellidos(request.getApellidos())
