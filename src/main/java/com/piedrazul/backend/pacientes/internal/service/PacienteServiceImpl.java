@@ -60,6 +60,13 @@ public class PacienteServiceImpl implements PacienteService {
         return toResponse(paciente);
     }
 
+    @Override
+    public PacienteResponse buscarPorKeycloakId(String keycloakId) {
+        Paciente paciente = pacienteRepository.findByKeycloakId(keycloakId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente", keycloakId));
+        return toResponse(paciente);
+    }
+
     private PacienteResponse toResponse(Paciente p) {
         return PacienteResponse.builder()
                 .id(p.getId())

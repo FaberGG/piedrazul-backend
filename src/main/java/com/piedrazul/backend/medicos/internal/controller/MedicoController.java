@@ -25,6 +25,12 @@ public class MedicoController {
 
     private final MedicosFacade medicosFacade;
 
+    @GetMapping("/me")
+    @PreAuthorize("hasAnyRole('MEDICO', 'TERAPISTA')")
+    public ResponseEntity<MedicoListadoResponse> miPerfil() {
+        return ResponseEntity.ok(medicosFacade.obtenerMedicoActual());
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'PACIENTE', 'ADMIN')")
     public ResponseEntity<List<MedicoListadoResponse>> listarMedicosActivos(

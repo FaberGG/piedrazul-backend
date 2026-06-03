@@ -43,6 +43,10 @@ build/
 piedrazul-backend_key.pem
 #### Concurrency test reports ####
 scripts/python/concurrency-test/scripts/reports/
+# Local tooling
+.claude/
+graphify-out/
+
 
 ### Realms de Keycloak ###
 docker/keycloak/export/

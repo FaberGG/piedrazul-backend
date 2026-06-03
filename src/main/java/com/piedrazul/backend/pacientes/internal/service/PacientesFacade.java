@@ -42,6 +42,7 @@ public class PacientesFacade implements PacientesApi {
         Paciente paciente = pacientesRepository.save(
                 Paciente.builder()
                         .usuarioId(request.getUsuarioId())
+                        .keycloakId(request.getKeycloakId())
                         .documento(request.getDocumento())
                         .nombres(NombreNormalizadorUtil.normalizar(request.getNombres()))
                         .apellidos(NombreNormalizadorUtil.normalizar(request.getApellidos()))
@@ -87,6 +88,15 @@ public class PacientesFacade implements PacientesApi {
     public PacienteResumenDTO buscarPorUsuarioId(UUID usuarioId) {
         Paciente paciente = pacientesRepository.findByUsuarioId(usuarioId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paciente", usuarioId));
+
+        return toResumen(paciente);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PacienteResumenDTO buscarPorKeycloakId(String keycloakId) {
+        Paciente paciente = pacientesRepository.findByKeycloakId(keycloakId)
+                .orElseThrow(() -> new ResourceNotFoundException("Paciente", keycloakId));
 
         return toResumen(paciente);
     }

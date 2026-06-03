@@ -28,6 +28,8 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
 
     List<Cita> findByFechaBetween(LocalDate desde, LocalDate hasta);
 
+    List<Cita> findByFechaOrderByMedicoIdAscHoraAsc(LocalDate fecha);
+
     @Query("SELECT c.estado, COUNT(c) FROM Cita c " +
            "WHERE c.fecha BETWEEN :desde AND :hasta " +
            "GROUP BY c.estado")

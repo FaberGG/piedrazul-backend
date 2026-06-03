@@ -9,7 +9,6 @@ import java.util.Optional;
 
 @Repository
 public interface AgendaDiaLockRepository extends JpaRepository<AgendaDiaLock, Long> {
-
     Optional<AgendaDiaLock> findByMedicoIdAndFecha(Long medicoId, LocalDate fecha);
 }
 

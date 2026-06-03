@@ -18,6 +18,7 @@ import java.util.UUID;
 public class RegistroPacienteDTO {
 
     private UUID usuarioId;
+    private String keycloakId;
     private String documento;
     private String nombres;
     private String apellidos;

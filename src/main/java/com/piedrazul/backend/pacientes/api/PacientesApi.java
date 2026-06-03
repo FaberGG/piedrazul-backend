@@ -19,5 +19,7 @@ public interface PacientesApi {
 
     PacienteResumenDTO buscarPorUsuarioId(UUID usuarioId);
 
+    PacienteResumenDTO buscarPorKeycloakId(String keycloakId);
+
     PacienteResumenDTO actualizarDatosPaciente(Long pacienteId, ActualizarPacienteDTO datos);
 }

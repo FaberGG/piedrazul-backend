@@ -2,14 +2,19 @@ package com.piedrazul.backend.reportes.internal.service;
 
 import com.piedrazul.backend.agenda.api.AgendaApi;
 import com.piedrazul.backend.agenda.api.dto.AgendaDiaDto;
+import com.piedrazul.backend.agenda.api.dto.HistorialPacienteDto;
 import com.piedrazul.backend.agenda.api.dto.ResumenCitasDto;
 import com.piedrazul.backend.reportes.internal.dto.ReporteCitasResponse;
+import com.piedrazul.backend.reportes.internal.exporter.AgendaDiaCompletaPdfExporter;
 import com.piedrazul.backend.reportes.internal.exporter.AgendaExporter;
 import com.piedrazul.backend.reportes.internal.exporter.AgendaExporterFactory;
 import com.piedrazul.backend.reportes.internal.exporter.ExportFormat;
+import com.piedrazul.backend.reportes.internal.exporter.HistorialPacientePdfExporter;
 import com.piedrazul.backend.reportes.internal.dto.ExportResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 import java.time.LocalDate;
 
@@ -32,6 +37,8 @@ public class ReporteService {
      */
     private final AgendaApi agendaApi;
     private final AgendaExporterFactory agendaExporterFactory;
+    private final HistorialPacientePdfExporter historialPacientePdfExporter;
+    private final AgendaDiaCompletaPdfExporter agendaDiaCompletaPdfExporter;
 
     /**
      * IntelliJ puede mostrar "Could not autowire" aquí porque
@@ -41,9 +48,13 @@ public class ReporteService {
      * La arquitectura está verificada por {@code ModularityTest}.
      */
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
-    public ReporteService(AgendaApi agendaApi, AgendaExporterFactory agendaExporterFactory) {
+    public ReporteService(AgendaApi agendaApi, AgendaExporterFactory agendaExporterFactory,
+                          HistorialPacientePdfExporter historialPacientePdfExporter,
+                          AgendaDiaCompletaPdfExporter agendaDiaCompletaPdfExporter) {
         this.agendaApi = agendaApi;
         this.agendaExporterFactory = agendaExporterFactory;
+        this.historialPacientePdfExporter = historialPacientePdfExporter;
+        this.agendaDiaCompletaPdfExporter = agendaDiaCompletaPdfExporter;
     }
 
     /**
@@ -78,6 +89,16 @@ public class ReporteService {
         AgendaDiaDto agendaDiaDto = agendaApi.obtenerAgendaDia(dia, medicoId);
         AgendaExporter agendaExporter = agendaExporterFactory.getAgendaExporter(exportFormat);
         return new ExportResult(agendaExporter.export(agendaDiaDto), agendaExporter.getContentType());
+    }
+
+    public ExportResult generarHistorialPaciente(Long pacienteId) {
+        HistorialPacienteDto historial = agendaApi.obtenerHistorialPaciente(pacienteId);
+        return new ExportResult(historialPacientePdfExporter.export(historial), "application/pdf");
+    }
+
+    public ExportResult generarAgendaDiaCompleta(LocalDate dia) {
+        List<AgendaDiaDto> agendas = agendaApi.obtenerAgendaDiaCompleta(dia);
+        return new ExportResult(agendaDiaCompletaPdfExporter.export(dia, agendas), "application/pdf");
     }
 }
 

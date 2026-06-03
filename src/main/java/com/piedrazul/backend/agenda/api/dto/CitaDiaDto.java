@@ -13,6 +13,7 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CitaDiaDto {
+    private Long id;
     private String pacienteNombre;
     private String pacienteDocumento;
     private LocalDate fecha;

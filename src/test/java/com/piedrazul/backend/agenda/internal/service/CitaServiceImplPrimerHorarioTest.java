@@ -8,6 +8,7 @@ import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
 import com.piedrazul.backend.medicos.api.dto.MedicoResumenDTO;
 import com.piedrazul.backend.pacientes.api.PacientesApi;
 import com.piedrazul.backend.shared.audit.service.AuditService;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,6 +27,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@Tag("unit")
 @ExtendWith(MockitoExtension.class)
 class CitaServiceImplPrimerHorarioTest {
 

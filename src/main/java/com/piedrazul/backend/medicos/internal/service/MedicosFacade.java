@@ -4,7 +4,6 @@ import com.piedrazul.backend.medicos.api.MedicosApi;
 import com.piedrazul.backend.medicos.api.dto.HorarioAtencionDTO;
 import com.piedrazul.backend.medicos.api.dto.MedicoResumenDTO;
 import com.piedrazul.backend.medicos.api.dto.RegistroMedicoDTO;
-import com.piedrazul.backend.auth.api.AuthApi;
 import com.piedrazul.backend.medicos.internal.domain.Medico;
 import com.piedrazul.backend.medicos.internal.dto.ConfiguracionAgendaMedicoResponse;
 import com.piedrazul.backend.medicos.internal.dto.ConfigurarAgendaMedicoRequest;
@@ -16,6 +15,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+
 import java.time.Duration;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -23,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Implementacion minima del facade de medicos para habilitar inyeccion de MedicosApi.
@@ -44,7 +47,6 @@ public class MedicosFacade implements MedicosApi {
     );
     private static final Set<Integer> INTERVALOS_VALIDOS = Set.of(5, 10, 15, 20, 30, 45, 60);
 
-    private final AuthApi authApi;
     private final MedicosRepository medicosRepository;
 
     @Override
@@ -52,10 +54,6 @@ public class MedicosFacade implements MedicosApi {
     public void registrarMedicoConUsuario(RegistroMedicoDTO request) {
         if (request.getUsuarioId() == null) {
             throw new BusinessRuleException("El usuarioId es obligatorio para registrar un medico");
-        }
-
-        if (!authApi.existeUsuarioActivo(request.getUsuarioId())) {
-            throw new BusinessRuleException("El usuario con id " + request.getUsuarioId() + " no existe o no esta activo");
         }
 
         if (medicosRepository.existsByUsuarioId(request.getUsuarioId())) {
@@ -96,6 +94,14 @@ public class MedicosFacade implements MedicosApi {
                 .stream()
                 .map(this::toResumen)
                 .toList();
+    }
+
+    public MedicoListadoResponse obtenerMedicoActual() {
+        JwtAuthenticationToken auth = (JwtAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
+        UUID usuarioId = UUID.fromString(auth.getToken().getSubject());
+        return medicosRepository.findByUsuarioId(usuarioId)
+                .map(this::toListado)
+                .orElseThrow(() -> new ResourceNotFoundException("Medico", usuarioId));
     }
 
     public List<MedicoListadoResponse> listarMedicosActivos(String especialidad) {

@@ -27,6 +27,9 @@ public class Paciente {
     @Column(name = "usuario_id", unique = true) // ← solo referencia, sin @OneToOne
     private UUID usuarioId;
 
+    @Column(name = "keycloak_id", unique = true, length = 100)
+    private String keycloakId;
+
     @Column(nullable = false, unique = true, length = 20)
     private String documento;
 

@@ -8,9 +8,39 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: false
+    database-platform: org.hibernate.dialect.H2Dialect
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:test-user}
+    password: ${MAIL_PASSWORD:test-pass}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # No issuer-uri in test — JwtDecoder bean is mocked in @SpringBootTest tests
+          issuer-uri:
+
+keycloak:
+  admin:
+    server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
+    realm: ${KEYCLOAK_REALM:piedrazul}
+    client-id: ${KEYCLOAK_CLIENT_ID:test-client}
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:test-secret}
 
 app:
   jwt:
     secret: test-secret-key-must-be-at-least-512-bits-long-for-hmac-sha512-algorithm
     expiration: 86400000
+  cors:
+    allowed-origin-patterns: ["*"]
+  rate-limiting:
+    public-policies: []
+    paciente-policies: []
 
