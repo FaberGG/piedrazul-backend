@@ -41,3 +41,6 @@ build/
 
 #### Concurrency test reports ####
 scripts/python/concurrency-test/scripts/reports/
+# Local tooling
+.claude/
+graphify-out/
