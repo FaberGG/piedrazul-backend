@@ -82,3 +82,34 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO }}/piedrazul-backend:latest
             ghcr.io/${{ env.REPO }}/piedrazul-backend:${{ github.sha }}
+  # ==========================================
+  # FASE 3: DESPLIEGUE CONTINUO VÍA SSH (CD)
+  # ==========================================
+  deploy:
+    name: Deploy to Azure VM
+    runs-on: ubuntu-latest
+    needs: build-and-push # Espera obligatoriamente a que la imagen esté creada
+
+    steps:
+      - name: Ejecutar comandos de despliegue en el servidor
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_HOST }}
+          username: ${{ secrets.AZURE_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          script: |
+            # 1. Iniciar sesión en el registro de GitHub desde Azure
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # 2. Navegar a la carpeta donde tienes tu docker-compose.prod.yml
+            # IMPORTANTE: Cambia esta ruta por la carpeta real en tu servidor
+            cd ~/piedrazul
+            
+            # 3. Descargar la versión más reciente de la imagen
+            docker compose -f docker-compose.prod.yml --env-file .env.prod pull backend
+            
+            # 4. Recrear el contenedor sin interrumpir a los demás servicios
+            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-deps backend
+            
+            # 5. Limpieza automática: borrar imágenes Docker viejas para no llenar el disco
+            docker image prune -af
