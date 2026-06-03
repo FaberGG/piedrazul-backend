@@ -1,6 +1,7 @@
 package com.piedrazul.backend.agenda.internal.realtime;
 
 import com.piedrazul.backend.agenda.internal.event.AgendaDinamicaChangedEvent;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -11,6 +12,7 @@ import java.time.LocalDate;
 
 import static org.mockito.Mockito.verify;
 
+@Tag("unit")
 @ExtendWith(MockitoExtension.class)
 class AgendaDinamicaAfterCommitListenerTest {
 
