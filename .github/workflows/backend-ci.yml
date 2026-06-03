@@ -34,6 +34,9 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Make mvnw executable
+        run: chmod +x ./mvnw
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -79,4 +82,3 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO }}/piedrazul-backend:latest
             ghcr.io/${{ env.REPO }}/piedrazul-backend:${{ github.sha }}
-
