@@ -39,7 +39,7 @@ import com.piedrazul.backend.pacientes.api.dto.RegistroPacienteDTO;
 import com.piedrazul.backend.shared.audit.service.AuditService;
 import com.piedrazul.backend.shared.exception.BusinessRuleException;
 import com.piedrazul.backend.shared.exception.ResourceNotFoundException;
-import com.piedrazul.backend.Notificaciones.services.EmailService;
+import com.piedrazul.backend.agenda.internal.event.ConfirmacionCitaEvent;
 import org.hibernate.AssertionFailure;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -98,7 +98,7 @@ public class CitaServiceImpl implements CitaService {
         private final AuditService auditService;
         private final ApplicationEventPublisher eventPublisher;
         private final ValidadorCita validadorCita;
-        private final EmailService emailService;
+
         public CitaServiceImpl(CitaRepository citaRepository,
                                AgendaDiaLockRepository agendaDiaLockRepository,
                                HistorialCambiosCitaRepository historialRepository,
@@ -108,8 +108,7 @@ public class CitaServiceImpl implements CitaService {
                                AuthApi authApi,
                                AuditService auditService,
                                ApplicationEventPublisher eventPublisher,
-                               ValidadorCita validadorCita,
-                               EmailService emailService) {
+                               ValidadorCita validadorCita) {
             this.citaRepository = citaRepository;
             this.agendaDiaLockRepository = agendaDiaLockRepository;
             this.historialRepository = historialRepository;
@@ -120,7 +119,6 @@ public class CitaServiceImpl implements CitaService {
             this.auditService = auditService;
             this.eventPublisher = eventPublisher;
             this.validadorCita = validadorCita;
-            this.emailService = emailService;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -1358,32 +1356,18 @@ public class CitaServiceImpl implements CitaService {
         }
 
 
-private void enviarConfirmacionEmail(Cita cita, PacienteResumenDTO paciente, MedicoResumenDTO medico) {
-    try {
-        String correo = paciente.getCorreo();
-        if (correo == null || correo.isBlank()) {
-            System.out.println("⚠️ Paciente sin correo, no se envía email");
-            return;
+        private void enviarConfirmacionEmail(Cita cita, PacienteResumenDTO paciente, MedicoResumenDTO medico) {
+            String correo = paciente.getCorreo();
+            if (correo == null || correo.isBlank()) return;
+
+            eventPublisher.publishEvent(new ConfirmacionCitaEvent(
+                    correo,
+                    paciente.getNombres() + " " + paciente.getApellidos(),
+                    cita.getFecha().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    cita.getHora().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")),
+                    medico.getNombresCompletos(),
+                    cita.getTipoCita() != null ? cita.getTipoCita().name() : "CONSULTA"
+            ));
         }
-
-        String fechaFormateada = cita.getFecha().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-        String horaFormateada  = cita.getHora().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
-        String nombreCompleto  = paciente.getNombres() + " " + paciente.getApellidos();
-        String tipoCita        = cita.getTipoCita() != null ? cita.getTipoCita().name() : "CONSULTA";
-
-        emailService.enviarConfirmacionCita(
-            correo,
-            nombreCompleto,
-            fechaFormateada,
-            horaFormateada,
-            medico.getNombresCompletos(),
-            tipoCita
-        );
-        System.out.println("✅ Email enviado a: " + correo);
-
-    } catch (Exception e) {
-        System.err.println("❌ Error enviando email: " + e.getMessage());
-    }
-}
 
 }
