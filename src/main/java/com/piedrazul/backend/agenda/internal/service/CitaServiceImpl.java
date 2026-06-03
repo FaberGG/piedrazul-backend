@@ -643,6 +643,7 @@ public class CitaServiceImpl implements CitaService {
                 );
 
                 LocalDate fechaAnterior = cita.getFecha();
+                Long medicoAnteriorId = cita.getMedicoId();
 
                 cita.setFecha(request.getNuevaFecha());
                 cita.setHora(nuevaHora);
@@ -660,7 +661,9 @@ public class CitaServiceImpl implements CitaService {
                 );
 
                 // Notificar ambas fechas al panel en tiempo real
-                publicarCambioAgenda(guardada.getMedicoId(), fechaAnterior, guardada.getId(), "CITA_REAGENDADA_ORIGEN");
+                // medicoAnteriorId garantiza que el canal correcto recibe el evento de origen
+                // incluso cuando se cambia de médico durante el reagendamiento
+                publicarCambioAgenda(medicoAnteriorId, fechaAnterior, guardada.getId(), "CITA_REAGENDADA_ORIGEN");
                 publicarCambioAgenda(guardada.getMedicoId(), guardada.getFecha(), guardada.getId(), "CITA_REAGENDADA_DESTINO");
 
                 PacienteResumenDTO paciente = pacientesApi.obtenerResumenPorId(guardada.getPacienteId());
@@ -771,7 +774,19 @@ public class CitaServiceImpl implements CitaService {
                 cita.setEstado(nuevo);
             }
 
+            UUID usuarioId = obtenerUsuarioIdAutenticado();
+            // CA-10.6: capture old value before mutation
+            String obsAnterior = cita.getObservaciones();
             if (request.getNuevasObservaciones() != null) {
+                if (!request.getNuevasObservaciones().equals(obsAnterior)) {
+                    historialRepository.save(
+                            HistorialCambiosCita.builder()
+                                    .cita(cita)
+                                    .motivo("Actualización de observaciones clínicas")
+                                    .modificadoPor(usuarioId)
+                                    .build()
+                    );
+                }
                 cita.setObservaciones(request.getNuevasObservaciones());
             }
 
@@ -787,14 +802,25 @@ public class CitaServiceImpl implements CitaService {
                 );
                 pacientesApi.actualizarDatosPaciente(cita.getPacienteId(), datosP);
             }
-
-            UUID usuarioId = obtenerUsuarioIdAutenticado();
+            // CA-10.7: include old/new observaciones in audit detalles when changed
+            String detalles;
+            if (request.getNuevasObservaciones() != null
+                    && !request.getNuevasObservaciones().equals(obsAnterior)) {
+                detalles = String.format(
+                        "{\"nuevoEstado\":\"%s\",\"observacionesAnterior\":\"%s\",\"observacionesNueva\":\"%s\"}",
+                        request.getNuevoEstado(),
+                        obsAnterior != null ? obsAnterior.replace("\"", "\\\"") : "",
+                        request.getNuevasObservaciones().replace("\"", "\\\"")
+                );
+            } else {
+                detalles = "{\"nuevoEstado\":\"" + request.getNuevoEstado() + "\"}";
+            }
             auditService.registrar(
                     usuarioId,
                     "ACTUALIZAR",
                     "CITA",
                     cita.getId(),
-                    "{\"nuevoEstado\":\"" + request.getNuevoEstado() + "\"}"
+                    detalles
             );
 
             publicarCambioAgenda(cita.getMedicoId(), cita.getFecha(), citaId, "CITA_ACTUALIZADA");
