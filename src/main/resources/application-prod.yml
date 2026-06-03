@@ -12,7 +12,17 @@ spring:
         jwt:
           # Use the same canonical environment variable name as other profiles
           issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI}
-
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 keycloak:
   admin:
     server-url: ${KEYCLOAK_SERVER_URL}

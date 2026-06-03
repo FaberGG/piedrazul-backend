@@ -44,6 +44,15 @@ jobs:
           distribution: "temurin"
           cache: "maven"
 
+      - name: Show Spring Boot startup logs
+        run: ./mvnw -B clean test -Dspring.profiles.active=test 2>&1 | head -300
+        continue-on-error: true   # <-- importante: no para el workflow aunque falle
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/piedrazul_test
+          SPRING_DATASOURCE_USERNAME: test_user
+          SPRING_DATASOURCE_PASSWORD: test_password
+          SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8080/realms/piedrazul
+
       - name: Run tests
         run: ./mvnw -B clean test
         env:
