@@ -22,6 +22,7 @@ public class ReporteCitasResponse {
     private long citasAtendidas;
     private long citasCanceladas;
     private long citasProgramadas;
+    private long citasInasistencias;
     private double porcentajeOcupacion;
 }
 

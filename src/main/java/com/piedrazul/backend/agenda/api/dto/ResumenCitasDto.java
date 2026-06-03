@@ -27,6 +27,7 @@ public class ResumenCitasDto {
     private long citasProgramadas;
     private long citasAtendidas;
     private long citasCanceladas;
+    private long citasInasistencias;
     /** Porcentaje de slots ocupados respecto al total disponible en el rango. */
     private double porcentajeOcupacion;
 }

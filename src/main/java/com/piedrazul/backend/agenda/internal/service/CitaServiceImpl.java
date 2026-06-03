@@ -613,8 +613,8 @@ public class CitaServiceImpl implements CitaService {
                         .orElseThrow(() -> new ResourceNotFoundException("Cita", citaId));
 
                 // Solo las citas ya atendidas se pueden reagendar como seguimiento
-                if (cita.getEstado() != EstadoCita.ATENDIDA) {
-                    throw new BusinessRuleException("Solo se pueden reagendar citas que ya fueron atendidas");
+                if (cita.getEstado() != EstadoCita.ATENDIDA && cita.getEstado() != EstadoCita.INASISTENCIA) {
+                    throw new BusinessRuleException("Solo se pueden reagendar citas que ya fueron atendidas o no atendidas");
                 }
 
                 Long medicoId = request.getMedicoNuevoId() != null
@@ -1197,6 +1197,7 @@ public class CitaServiceImpl implements CitaService {
             long programadas = 0;
             long atendidas   = 0;
             long canceladas  = 0;
+            long inasistencias = 0; 
 
             for (Object[] fila : conteos) {
                 EstadoCita estado = (EstadoCita) fila[0];
@@ -1205,10 +1206,11 @@ public class CitaServiceImpl implements CitaService {
                     case PROGRAMADA -> programadas = count;
                     case ATENDIDA   -> atendidas   = count;
                     case CANCELADA  -> canceladas  = count;
+                    case INASISTENCIA -> inasistencias = count;
                 }
             }
 
-            long total = programadas + atendidas + canceladas;
+            long total = programadas + atendidas + canceladas + inasistencias;
 
             double porcentaje = 0.0;
 
@@ -1219,6 +1221,7 @@ public class CitaServiceImpl implements CitaService {
                     .citasProgramadas(programadas)
                     .citasAtendidas(atendidas)
                     .citasCanceladas(canceladas)
+                    .citasInasistencias(inasistencias)
                     .porcentajeOcupacion(porcentaje)
                     .build();
         }
