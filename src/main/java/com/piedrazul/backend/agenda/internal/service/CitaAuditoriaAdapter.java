@@ -10,19 +10,15 @@ import java.time.LocalTime;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Typed facade over AuditService that uses ObjectMapper for JSON serialization.
- * Replaces hand-built JSON strings which break on quotes, backslashes, or newlines.
- */
 @Component
 public class CitaAuditoriaAdapter {
 
-    private final AuditService auditService;
-    private final ObjectMapper objectMapper;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public CitaAuditoriaAdapter(AuditService auditService, ObjectMapper objectMapper) {
+    private final AuditService auditService;
+
+    public CitaAuditoriaAdapter(AuditService auditService) {
         this.auditService = auditService;
-        this.objectMapper = objectMapper;
     }
 
     public void registrarCreacion(UUID actor, String accion, Cita cita) {
@@ -62,7 +58,7 @@ public class CitaAuditoriaAdapter {
 
     private String toJson(Map<String, Object> data) {
         try {
-            return objectMapper.writeValueAsString(data);
+            return MAPPER.writeValueAsString(data);
         } catch (Exception e) {
             return "{\"error\":\"audit-serialization-failed\"}";
         }
