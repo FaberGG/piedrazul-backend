@@ -1,4 +1,4 @@
-package com.piedrazul.backend.agenda.internal.event;
+package com.piedrazul.backend.agenda.api;
 
 public record ConfirmacionCitaEvent(
         String destinatario,

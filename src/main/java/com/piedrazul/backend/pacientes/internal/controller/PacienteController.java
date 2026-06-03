@@ -1,6 +1,5 @@
 package com.piedrazul.backend.pacientes.internal.controller;
 
-import com.piedrazul.backend.auth.api.AuthApi;
 import com.piedrazul.backend.pacientes.internal.dto.PacienteResponse;
 import com.piedrazul.backend.pacientes.internal.dto.PacienteSugerenciaResponse;
 import com.piedrazul.backend.pacientes.internal.service.PacienteService;
@@ -13,7 +12,6 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/pacientes")
@@ -21,7 +19,6 @@ import java.util.UUID;
 public class PacienteController {
 
     private final PacienteService pacienteService;
-    private final AuthApi authApi;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('AGENDADOR', 'TERAPISTA', 'MEDICO', 'ADMIN')")
@@ -49,9 +46,6 @@ public class PacienteController {
         JwtAuthenticationToken auth = (JwtAuthenticationToken) SecurityContextHolder
                 .getContext().getAuthentication();
         String keycloakId = auth.getToken().getSubject();
-        UUID usuarioId = authApi.findByKeycloakId(keycloakId)
-                .map(u -> u.getId())
-                .orElseThrow(() -> new BusinessRuleException("Usuario no encontrado"));
-        return ResponseEntity.ok(pacienteService.buscarPorUsuarioId(usuarioId));
+        return ResponseEntity.ok(pacienteService.buscarPorKeycloakId(keycloakId));
     }
 }

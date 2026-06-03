@@ -2,6 +2,7 @@
         displayName = "Pacientes",
         allowedDependencies = {
                 "shared::exception",
-                "shared::audit"
+                "shared::audit",
+                "shared::util"
         })
 package com.piedrazul.backend.pacientes;
