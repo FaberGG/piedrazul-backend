@@ -313,6 +313,14 @@ class CitaServiceImplTest {
     @DisplayName("RF2 — Si el slot colisiona por concurrencia DB debe informar ocupado")
     void crearCitaManual_colisionUnicaDebeInformarOcupado() {
         LocalDate fecha = LocalDate.now().plusDays(2);
+        HorarioAtencionDTO horarioParaEsteDia = HorarioAtencionDTO.builder()
+                .diasAtencion(List.of(fecha.getDayOfWeek()))  // el día exacto
+                .horaInicio(LocalTime.of(7, 0))
+                .horaFin(LocalTime.of(17, 0))
+                .intervaloMinutos(30)
+                .build();
+
+        when(medicosApi.obtenerHorarioAtencion(1L)).thenReturn(horarioParaEsteDia);
         AgendaDiaLock lock = new AgendaDiaLock();
         lock.setMedicoId(1L);
         lock.setFecha(fecha);
