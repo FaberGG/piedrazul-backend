@@ -7,6 +7,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+      jdbc:
+        time_zone: ${TZ:America/Bogota}
     show-sql: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
   security:
@@ -15,6 +17,8 @@ spring:
         jwt:
           issuer-uri: ""
           jwk-set-uri: ""
+  jackson:
+    time-zone: ${TZ:America/Bogota}
 
   # Desactiva el mail para no necesitar SMTP en tests
   mail:
