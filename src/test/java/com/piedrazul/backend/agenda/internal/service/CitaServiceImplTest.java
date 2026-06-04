@@ -32,6 +32,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -312,7 +313,8 @@ class CitaServiceImplTest {
     @Test
     @DisplayName("RF2 — Si el slot colisiona por concurrencia DB debe informar ocupado")
     void crearCitaManual_colisionUnicaDebeInformarOcupado() {
-        LocalDate fecha = LocalDate.now().plusDays(2);
+        LocalDate fecha = LocalDate.now()
+                .with(TemporalAdjusters.next(DayOfWeek.MONDAY));
         HorarioAtencionDTO horarioParaEsteDia = HorarioAtencionDTO.builder()
                 .diasAtencion(List.of(fecha.getDayOfWeek()))  // el día exacto
                 .horaInicio(LocalTime.of(7, 0))
