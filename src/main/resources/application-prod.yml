@@ -7,7 +7,7 @@ spring:
     hibernate:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
       jdbc:
-        time_zone: America/Bogota
+        time_zone: ${TZ}
   security:
     oauth2:
       resourceserver:
@@ -15,7 +15,7 @@ spring:
           # Use the same canonical environment variable name as other profiles
           issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI}
   jackson:
-    time-zone: ${TZ:America/Bogota}
+    time-zone: ${TZ}
   mail:
     host: smtp.gmail.com
     port: 587
