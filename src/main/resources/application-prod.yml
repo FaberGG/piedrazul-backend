@@ -6,12 +6,16 @@ spring:
   jpa:
     hibernate:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
+      jdbc:
+        time_zone: America/Bogota
   security:
     oauth2:
       resourceserver:
         jwt:
           # Use the same canonical environment variable name as other profiles
           issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI}
+  jackson:
+    time-zone: ${TZ:America/Bogota}
   mail:
     host: smtp.gmail.com
     port: 587
